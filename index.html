@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#12141a">
+<title>健身紀錄</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏋️</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">🏋️ 健身紀錄</div>
+  <div class="header-right">
+    <button class="btn-icon" id="openSyncModal" title="Google Drive 同步">☁️</button>
+    <div class="today" id="todayLabel"></div>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ============ TAB: 新增紀錄 ============ -->
+  <section class="tab-panel" id="tab-log">
+    <div class="panel-head">
+      <h2 id="logTitle">新增紀錄</h2>
+      <input type="date" id="sessionDate" class="date-input">
+    </div>
+
+    <div class="edit-banner" id="editBanner" hidden>
+      <span>✏️ 正在編輯這筆紀錄</span>
+      <button class="btn btn-text" id="cancelEditBtn">取消編輯</button>
+    </div>
+
+    <div id="exerciseList" class="exercise-list"></div>
+
+    <button class="btn btn-outline btn-block" id="addExerciseBtn">＋ 新增動作</button>
+
+    <div class="field">
+      <label>訓練備註</label>
+      <textarea id="sessionNotes" placeholder="今天的狀態、感受...（選填）" rows="2"></textarea>
+    </div>
+
+    <div class="session-summary" id="liveSummary"></div>
+
+    <button class="btn btn-primary btn-block btn-lg" id="saveSessionBtn">儲存這次訓練</button>
+  </section>
+
+  <!-- ============ TAB: 歷史 ============ -->
+  <section class="tab-panel" id="tab-history" hidden>
+    <div class="panel-head">
+      <h2>歷史紀錄</h2>
+    </div>
+    <input type="text" id="historySearch" class="text-input" placeholder="搜尋動作名稱...">
+    <div id="historyList" class="history-list"></div>
+  </section>
+
+  <!-- ============ TAB: PR / 1RM ============ -->
+  <section class="tab-panel" id="tab-pr" hidden>
+    <div class="panel-head">
+      <h2>PR 紀錄與 1RM 估算</h2>
+      <button class="btn btn-outline btn-sm" id="openRmCalcBtn">🧮 RM 計算機</button>
+    </div>
+    <p class="hint">依 Epley 公式估算：1RM = 重量 ×(1 + 次數 / 30)（僅重量×次數類動作會顯示在此）</p>
+    <div id="prList" class="pr-list"></div>
+
+    <div id="prDetail" class="pr-detail" hidden>
+      <button class="btn btn-text" id="prBackBtn">← 返回列表</button>
+      <h3 id="prDetailName"></h3>
+      <div id="prDetailChart" class="chart-box"></div>
+      <div id="prDetailTable"></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB: 圖表 ============ -->
+  <section class="tab-panel" id="tab-charts" hidden>
+    <div class="panel-head">
+      <h2>圖表總覽</h2>
+    </div>
+
+    <div class="card">
+      <h3>每週訓練總量（公斤）</h3>
+      <div id="volumeChart" class="chart-box"></div>
+    </div>
+
+    <div class="card">
+      <h3>訓練頻率（近 12 週）</h3>
+      <div id="freqHeatmap" class="chart-box"></div>
+      <div class="legend-row">
+        <span>少</span>
+        <span class="heat-swatch h0"></span>
+        <span class="heat-swatch h1"></span>
+        <span class="heat-swatch h2"></span>
+        <span class="heat-swatch h3"></span>
+        <span class="heat-swatch h4"></span>
+        <span>多</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>部位訓練分布（近 30 天）</h3>
+      <div id="bodyPartChart" class="chart-box"></div>
+    </div>
+  </section>
+
+  <!-- ============ TAB: 體重 ============ -->
+  <section class="tab-panel" id="tab-weight" hidden>
+    <div class="panel-head">
+      <h2>體重追蹤</h2>
+    </div>
+    <div class="field-row">
+      <input type="date" id="weightDate" class="date-input">
+      <input type="number" id="weightInput" class="text-input" placeholder="體重 (kg)" step="0.1" inputmode="decimal">
+      <button class="btn btn-primary" id="addWeightBtn">新增</button>
+    </div>
+    <div class="card">
+      <h3>體重趨勢</h3>
+      <div id="weightChart" class="chart-box"></div>
+    </div>
+    <div id="weightList" class="weight-list"></div>
+  </section>
+
+</main>
+
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="tab-log"><span class="ic">📝</span>紀錄</button>
+  <button class="tab-btn" data-tab="tab-history"><span class="ic">📅</span>歷史</button>
+  <button class="tab-btn" data-tab="tab-pr"><span class="ic">🏆</span>PR</button>
+  <button class="tab-btn" data-tab="tab-charts"><span class="ic">📊</span>圖表</button>
+  <button class="tab-btn" data-tab="tab-weight"><span class="ic">⚖️</span>體重</button>
+</nav>
+
+<div id="toast" class="toast"></div>
+
+<!-- Rest timer floating widget -->
+<div class="timer-widget" id="timerWidget">
+  <div class="timer-panel" id="timerPanel" hidden>
+    <div class="timer-display" id="timerDisplay">00:00</div>
+    <div class="timer-presets">
+      <button class="chip" data-secs="90">1:30</button>
+      <button class="chip" data-secs="120">2:00</button>
+      <button class="chip" data-secs="150">2:30</button>
+      <button class="chip" data-secs="180">3:00</button>
+    </div>
+    <div class="timer-custom-row">
+      <input type="number" id="timerCustomInput" class="text-input" placeholder="自訂秒數" min="1" inputmode="numeric">
+      <button class="btn btn-sm btn-primary" id="timerCustomStart">開始</button>
+    </div>
+    <div class="timer-controls">
+      <button class="btn btn-sm" id="timerPauseBtn">暫停</button>
+      <button class="btn btn-sm" id="timerResetBtn">重置</button>
+    </div>
+  </div>
+  <button class="timer-fab" id="timerFab" title="組間休息計時器">⏱️</button>
+</div>
+
+<!-- Exercise picker modal -->
+<div class="modal-backdrop" id="exerciseModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>新增動作</h3>
+      <button class="btn-icon" id="closeExerciseModal">✕</button>
+    </div>
+    <div class="field">
+      <label>分類</label>
+      <div class="chip-row" id="categoryChips"></div>
+    </div>
+    <div class="field">
+      <label>動作名稱</label>
+      <input type="text" id="exerciseNameInput" class="text-input" placeholder="例如：槓鈴臥推" list="exercisePresets">
+      <datalist id="exercisePresets"></datalist>
+    </div>
+    <div class="preset-row" id="presetQuickPick"></div>
+    <div class="field">
+      <label>紀錄方式</label>
+      <div class="chip-row" id="inputTypeChips">
+        <button class="chip" data-type="weight_reps">重量×次數</button>
+        <button class="chip" data-type="reps_only">僅次數</button>
+        <button class="chip" data-type="duration">秒數</button>
+      </div>
+    </div>
+    <div class="field" id="variantField" hidden>
+      <label>款式</label>
+      <div class="chip-row" id="variantChips"></div>
+    </div>
+    <div class="field">
+      <div class="chip-row">
+        <button class="chip" id="regressionToggle">退階版本</button>
+        <button class="chip" id="unilateralToggle">單邊動作（左右分開）</button>
+        <button class="chip" id="rirToggle">記錄保留次數（RIR）</button>
+      </div>
+      <p class="hint" id="unilateralHint" hidden>單邊動作只需填「單邊」的重量，例如左右手各拿 8kg 就填 8。訓練量會自動算左右各一次。</p>
+    </div>
+    <button class="btn btn-primary btn-block" id="confirmAddExercise">加入這次訓練</button>
+  </div>
+</div>
+
+<!-- RM calculator modal -->
+<div class="modal-backdrop" id="rmCalcModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🧮 RM 計算機</h3>
+      <button class="btn-icon" id="closeRmCalcModal">✕</button>
+    </div>
+    <p class="hint">輸入你做到的重量與次數，估算 1RM 與各強度百分比對照表（同樣採用 Epley 公式）</p>
+    <div class="field-row">
+      <input type="number" id="rmCalcWeight" class="text-input" placeholder="重量 (kg)" step="0.5" min="0" inputmode="decimal">
+      <input type="number" id="rmCalcReps" class="text-input" placeholder="次數" step="1" min="1" inputmode="numeric">
+    </div>
+    <div class="session-summary" id="rmCalcResult"></div>
+    <div id="rmCalcTable"></div>
+  </div>
+</div>
+
+<!-- Soreness (DOMS) logging modal -->
+<div class="modal-backdrop" id="sorenessModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>記錄延遲性酸痛</h3>
+      <button class="btn-icon" id="closeSorenessModal">✕</button>
+    </div>
+    <p class="hint" id="sorenessTarget"></p>
+    <div class="field">
+      <label>酸痛強度</label>
+      <div class="chip-row" id="sorenessLevelChips">
+        <button class="chip" data-level="none">無酸痛</button>
+        <button class="chip" data-level="mild">輕度</button>
+        <button class="chip" data-level="moderate">中度</button>
+        <button class="chip" data-level="severe">太強</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>留言（下次做這個動作時會提醒你）</label>
+      <textarea id="sorenessNote" placeholder="例如：膝蓋外側有點緊，下次熱身多做一組" rows="2"></textarea>
+    </div>
+    <button class="btn btn-primary btn-block" id="saveSorenessBtn">儲存</button>
+  </div>
+</div>
+
+<!-- Google Drive sync modal -->
+<div class="modal-backdrop" id="syncModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>☁️ Google Drive 同步</h3>
+      <button class="btn-icon" id="closeSyncModal">✕</button>
+    </div>
+    <p class="hint">把訓練紀錄同步到你的 Google Drive（存在隱藏的應用程式資料夾，不會出現在你一般的雲端硬碟畫面），這樣手機跟電腦就能看到同一份資料。</p>
+    <p class="hint" id="syncStatus"></p>
+    <button class="btn btn-primary btn-block" id="btnGdriveSync">連結 Google Drive</button>
+    <button class="btn btn-outline btn-block" id="btnGdriveSignout" hidden>已連結・中斷連結</button>
+    <button class="btn btn-text" id="btnGdrivePushNow" hidden>立即上傳目前資料</button>
+  </div>
+</div>
+
+<script src="calc.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
