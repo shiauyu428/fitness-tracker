@@ -243,6 +243,7 @@
         <div class="ex-history">
           <div>上次（${last.date}）：${last.ex.sets.map(st => formatSetLabel(last.ex, st)).join('、')}（${exerciseSubtotalLabel(last.ex)}）</div>
           <div>近3個月：練了 ${history.length} 次・平均 ${round1(avg)}${unit}／次 ${diffHtml}</div>
+          ${last.ex.note ? `<div>📌 上次備註：${esc(last.ex.note)}</div>` : ''}
         </div>
       </div>`;
   }
@@ -296,6 +297,7 @@
           <div><span class="name">${esc(ex.name)}</span><span class="cat-badge">${esc(ex.category)}</span>${ex.unilateral ? '<span class="uni-badge">單邊</span>' : ''}</div>
           <button class="btn-icon" data-action="remove-exercise" data-ex-id="${ex.id}" title="移除動作">✕</button>
         </div>
+        <input type="text" class="ex-note-input" placeholder="動作備註（例如：槓高40cm、握距寬）" value="${esc(ex.note || '')}" data-ex-id="${ex.id}">
         ${exerciseHistoryBoxHtml(ex)}
         ${ex.sets.map((s, i) => setRowHtml(ex, s, i)).join('')}
         <button class="add-set-btn" data-action="add-set" data-ex-id="${ex.id}">＋ 新增一組</button>
@@ -319,6 +321,11 @@
 
   exerciseListEl.addEventListener('input', (e) => {
     const t = e.target;
+    if (t.classList.contains('ex-note-input')) {
+      const noteEx = draft.exercises.find(x => x.id === t.dataset.exId);
+      if (noteEx) noteEx.note = t.value;
+      return;
+    }
     if (!t.dataset.field) return;
     const ex = draft.exercises.find(x => x.id === t.dataset.exId);
     if (!ex) return;
@@ -482,7 +489,7 @@
     if (currentVariants && selectedVariant) name += `（${selectedVariant}）`;
     if (isRegression) name += '（退階）';
     draft.exercises.push({
-      id: uid(), name, category: selectedCategory, inputType: currentInputType, unilateral: isUnilateral, trackRir,
+      id: uid(), name, category: selectedCategory, inputType: currentInputType, unilateral: isUnilateral, trackRir, note: '',
       sets: [defaultSetFor({ inputType: currentInputType, trackRir }, null)],
     });
     closeModal();
@@ -538,6 +545,7 @@
         unilateral: ex.unilateral,
         trackRir: ex.trackRir,
         soreness: ex.soreness,
+        note: ex.note,
         sets: ex.sets.map(st => ({ ...st })),
       })),
     };
@@ -556,7 +564,7 @@
     const cleanExercises = draft.exercises
       .map(ex => ({
         id: ex.id, name: ex.name, category: ex.category, inputType: ex.inputType, unilateral: ex.unilateral,
-        trackRir: ex.trackRir, soreness: ex.soreness,
+        trackRir: ex.trackRir, soreness: ex.soreness, note: (ex.note || '').trim(),
         sets: cleanSetsFor(ex),
       }))
       .filter(ex => ex.sets.length > 0);
@@ -653,6 +661,7 @@
               <span class="cat-badge">${esc(ex.category)}</span>${ex.unilateral ? '<span class="uni-badge">單邊</span>' : ''}<br>
               <span class="sets-str">${ex.sets.map(st => formatSetLabel(ex, st)).join('、')}
                 （${exerciseSubtotalLabel(ex)}）</span><br>
+              ${ex.note ? `<span class="ex-note-display">📌 ${esc(ex.note)}</span><br>` : ''}
               ${ex.soreness ? `
                 <button class="soreness-badge" data-action="soreness" data-session-id="${s.id}" data-ex-id="${ex.id}">
                   ${SORENESS_LEVELS[ex.soreness.level].emoji} ${SORENESS_LEVELS[ex.soreness.level].label}${ex.soreness.note ? '・' + esc(ex.soreness.note) : ''}

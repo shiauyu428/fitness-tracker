@@ -119,6 +119,16 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 }
 .exercise-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .exercise-card-head .name { font-weight: 700; font-size: 15px; }
+.ex-note-input {
+  font-size: 13px;
+  padding: 7px 10px;
+  margin-bottom: 8px;
+  background: var(--bg-input);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text);
+}
+.ex-note-display { font-size: 12px; color: var(--text-dim); font-style: italic; }
 .exercise-card-head .cat-badge, .session-ex-row .cat-badge {
   font-size: 11px; color: var(--accent); background: var(--accent-dim);
   padding: 2px 8px; border-radius: 100px; margin-left: 6px;
