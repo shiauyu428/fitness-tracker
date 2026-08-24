@@ -1155,7 +1155,7 @@
   // pattern as this developer's other personal trackers: last-write-wins,
   // whole-file replace, pushed 3s after any local change, pulled on load.
   // ---------------------------------------------------------------------
-  const GDRIVE_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+  const GDRIVE_CLIENT_ID = '675940238157-ahcuged7kgcbcvsc8e6kun2s7nvg6n5h.apps.googleusercontent.com';
   const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
   const GDRIVE_FILE_NAME = 'fitness_tracker_sync.json';
 
