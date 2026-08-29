@@ -119,6 +119,9 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 }
 .exercise-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .exercise-card-head .name { font-weight: 700; font-size: 15px; }
+.ex-head-actions { display: flex; align-items: center; gap: 2px; }
+.ex-head-actions .btn-icon { font-size: 13px; padding: 4px 6px; }
+.ex-head-actions .btn-icon:disabled { opacity: .25; cursor: default; }
 .ex-note-input {
   font-size: 13px;
   padding: 7px 10px;
@@ -129,7 +132,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
   color: var(--text);
 }
 .ex-note-display { font-size: 12px; color: var(--text-dim); font-style: italic; }
-.exercise-card-head .cat-badge, .session-ex-row .cat-badge {
+.exercise-card-head .cat-badge, .ex-table-name .cat-badge {
   font-size: 11px; color: var(--accent); background: var(--accent-dim);
   padding: 2px 8px; border-radius: 100px; margin-left: 6px;
 }
@@ -137,14 +140,17 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
   font-size: 11px; color: var(--green); background: #3ecf8e22;
   padding: 2px 8px; border-radius: 100px; margin-left: 6px;
 }
-.set-row { display: grid; grid-template-columns: 22px 1fr 1fr auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+.set-row { display: grid; grid-template-columns: 22px 1fr 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
 .set-row-1 { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; margin-bottom: 6px; }
-.set-row-2 { display: grid; grid-template-columns: 22px 1fr 0.7fr auto; gap: 8px; align-items: center; margin-bottom: 6px; }
-.set-row-3 { grid-template-columns: 22px 1fr 1fr 0.7fr auto; }
-.set-row .set-idx { color: var(--text-dim); font-size: 13px; text-align: center; }
+.set-row-2 { display: grid; grid-template-columns: 22px 1fr auto auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+.set-row .set-idx, .set-row-1 .set-idx, .set-row-2 .set-idx { color: var(--text-dim); font-size: 13px; text-align: center; }
 .set-row input, .set-row-1 input, .set-row-2 input { padding: 8px 10px; }
-.set-row .rir-input { text-align: center; }
-.set-row .rm-set, .set-row-1 .rm-set, .set-row-2 .rm-set { background: none; border: none; color: var(--text-dim); font-size: 16px; cursor: pointer; }
+.rir-input { text-align: center; width: 56px; }
+.rir-add-btn {
+  background: var(--bg-input); border: 1px dashed var(--border); color: var(--text-dim);
+  border-radius: 8px; font-size: 11px; padding: 8px 8px; cursor: pointer; white-space: nowrap;
+}
+.rm-set { background: none; border: none; color: var(--text-dim); font-size: 16px; cursor: pointer; }
 .add-set-btn { font-size: 13px; color: var(--accent); background: none; border: none; cursor: pointer; padding: 6px 0; }
 .exercise-card-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
 .exercise-vol { font-size: 12px; color: var(--text-dim); }
@@ -176,14 +182,39 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 .session-item-head .meta { color: var(--text-dim); font-size: 13px; }
 .session-item-body { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: none; }
 .session-item-body.open { display: block; }
-.session-ex-row { font-size: 14px; margin-bottom: 6px; }
-.session-ex-row .ex-name { font-weight: 600; }
-.session-ex-row .sets-str { color: var(--text-dim); }
-.session-actions { display: flex; gap: 8px; margin-top: 10px; }
+.session-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .session-notes { font-size: 13px; color: var(--text-dim); margin-top: 8px; font-style: italic; }
+
+/* Two-column exercise table: name+sets on the left, this exercise's own total on the right.
+   Used in the history list and the coach-facing share view. */
+.ex-table { display: flex; flex-direction: column; }
+.ex-table-row {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.ex-table-row:first-child { border-top: none; padding-top: 0; }
+.ex-table-left { min-width: 0; }
+.ex-table-name { font-weight: 600; font-size: 14px; }
+.ex-table-sets { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
+.ex-table-right { font-weight: 700; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
 
 .pr-list { display: flex; flex-direction: column; gap: 8px; }
 .pr-list[hidden] { display: none; }
+
+/* Share / export view */
+.share-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.share-date { font-weight: 700; font-size: 16px; }
+.share-meta { color: var(--text-dim); font-size: 13px; }
+
+/* Exercise manager */
+.manager-preset-list { display: flex; flex-direction: column; margin: 10px 0; max-height: 260px; overflow-y: auto; }
+.manager-preset-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.manager-preset-row:first-child { border-top: none; }
+.manager-preset-name { font-weight: 600; font-size: 14px; }
+.manager-preset-meta { color: var(--text-dim); font-size: 12px; margin-left: 8px; }
 .pr-item {
   display: flex; justify-content: space-between; align-items: center;
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;

@@ -13,6 +13,7 @@
 <header class="app-header">
   <div class="brand">🏋️ 健身紀錄</div>
   <div class="header-right">
+    <button class="btn-icon" id="openExerciseManager" title="動作管理">⚙️</button>
     <button class="btn-icon" id="openSyncModal" title="Google Drive 同步">☁️</button>
     <div class="today" id="todayLabel"></div>
   </div>
@@ -187,8 +188,8 @@
       <div class="chip-row">
         <button class="chip" id="regressionToggle">退階版本</button>
         <button class="chip" id="unilateralToggle">單邊動作（左右分開）</button>
-        <button class="chip" id="rirToggle">記錄保留次數（RIR）</button>
       </div>
+      <p class="hint">保留次數 (RIR) 現在改成加入動作後、在每一組後面按「+RIR」個別加，不用在這裡先決定。</p>
       <p class="hint" id="unilateralHint" hidden>單邊動作只需填「單邊」的重量，例如左右手各拿 8kg 就填 8。訓練量會自動算左右各一次。</p>
     </div>
     <button class="btn btn-primary btn-block" id="confirmAddExercise">加入這次訓練</button>
@@ -249,6 +250,47 @@
     <button class="btn btn-primary btn-block" id="btnGdriveSync">連結 Google Drive</button>
     <button class="btn btn-outline btn-block" id="btnGdriveSignout" hidden>已連結・中斷連結</button>
     <button class="btn btn-text" id="btnGdrivePushNow" hidden>立即上傳目前資料</button>
+  </div>
+</div>
+
+<!-- Exercise manager modal -->
+<div class="modal-backdrop" id="exerciseManagerModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>⚙️ 動作管理</h3>
+      <button class="btn-icon" id="closeExerciseManagerModal">✕</button>
+    </div>
+    <p class="hint">隱藏用不到的動作、或新增自己的動作。變更只會影響「新增動作」清單，不影響已存的紀錄。</p>
+    <div class="chip-row" id="managerCategoryChips"></div>
+    <div id="managerPresetList" class="manager-preset-list"></div>
+    <div class="field">
+      <label>新增自訂動作</label>
+      <input type="text" id="managerNewName" class="text-input" placeholder="動作名稱">
+    </div>
+    <div class="field">
+      <label>紀錄方式</label>
+      <div class="chip-row" id="managerInputTypeChips">
+        <button class="chip" data-type="weight_reps">重量×次數</button>
+        <button class="chip" data-type="reps_only">僅次數</button>
+        <button class="chip" data-type="duration">秒數</button>
+      </div>
+    </div>
+    <div class="chip-row">
+      <button class="chip" id="managerUnilateralToggle">單邊動作（左右分開）</button>
+    </div>
+    <button class="btn btn-primary btn-block" id="managerAddBtn">＋ 新增到清單</button>
+  </div>
+</div>
+
+<!-- Share / export modal (for showing a coach) -->
+<div class="modal-backdrop" id="shareModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>📤 分享這次訓練</h3>
+      <button class="btn-icon" id="closeShareModal">✕</button>
+    </div>
+    <div id="shareModalBody"></div>
+    <button class="btn btn-primary btn-block" id="copyShareTextBtn">複製為文字</button>
   </div>
 </div>
 
