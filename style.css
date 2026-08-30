@@ -333,6 +333,20 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
   color: var(--text-dim);
   cursor: pointer;
 }
+.add-to-list-chip {
+  display: block;
+  width: 100%;
+  text-align: center;
+  background: var(--accent-dim);
+  border: 1px dashed var(--accent);
+  color: var(--accent);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+}
 
 /* Exercise history / comparison box (in the Log tab) */
 .ex-history {

@@ -446,6 +446,8 @@
   const regressionToggleEl = document.getElementById('regressionToggle');
   const unilateralToggleEl = document.getElementById('unilateralToggle');
   const unilateralHintEl = document.getElementById('unilateralHint');
+  const addNewNameToPresetsBtn = document.getElementById('addNewNameToPresets');
+  const addNewNamePreviewEl = document.getElementById('addNewNamePreview');
 
   let selectedCategory = CATEGORIES[0];
   let currentInputType = 'weight_reps';
@@ -489,6 +491,35 @@
     exercisePresetsList.innerHTML = presets.map(p => `<option value="${esc(p.name)}">`).join('');
     presetQuickPickEl.innerHTML = presets.map(p => `<button class="preset-chip" data-name="${esc(p.name)}">${esc(p.name)}</button>`).join('');
   }
+
+  // Shows a "add to my exercise list" quick-add chip whenever the typed name
+  // doesn't match anything already in this category's list — so a brand new
+  // exercise can be saved as a preset on the spot, no trip to 動作管理 needed.
+  function updateAddNewNameVisibility() {
+    const name = exerciseNameInput.value.trim();
+    if (!name || findPreset(name)) {
+      addNewNameToPresetsBtn.hidden = true;
+      return;
+    }
+    addNewNamePreviewEl.textContent = name;
+    addNewNameToPresetsBtn.hidden = false;
+  }
+  exerciseNameInput.addEventListener('input', updateAddNewNameVisibility);
+  addNewNameToPresetsBtn.addEventListener('click', () => {
+    const name = exerciseNameInput.value.trim();
+    if (!name) return;
+    const preset = { name, inputType: currentInputType };
+    if (isUnilateral) preset.unilateral = true;
+    hiddenPresets.delete(`${selectedCategory}::${name}`);
+    customPresets[selectedCategory] = (customPresets[selectedCategory] || []).filter(p => p.name !== name);
+    customPresets[selectedCategory].push(preset);
+    saveCustomPresets();
+    saveHiddenPresets();
+    refreshModalForCategory();
+    updateAddNewNameVisibility();
+    toast(`已把「${name}」加入常用動作清單`);
+  });
+
   categoryChipsEl.addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
     if (!chip) return;
@@ -497,6 +528,7 @@
     setVariants(null);
     setUnilateral(false);
     refreshModalForCategory();
+    updateAddNewNameVisibility();
   });
   presetQuickPickEl.addEventListener('click', (e) => {
     const chip = e.target.closest('.preset-chip');
@@ -506,6 +538,7 @@
     setInputType((preset && preset.inputType) || 'weight_reps');
     setVariants(preset && preset.variants);
     setUnilateral(!!(preset && preset.unilateral));
+    updateAddNewNameVisibility();
   });
   inputTypeChipsEl.addEventListener('click', (e) => {
     const chip = e.target.closest('.chip');
@@ -533,6 +566,7 @@
     setVariants(null);
     setUnilateral(false);
     refreshModalForCategory();
+    addNewNameToPresetsBtn.hidden = true;
     modal.hidden = false;
   }
   function closeModal() { modal.hidden = true; }
