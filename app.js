@@ -1429,13 +1429,19 @@
   // whole-file replace, pushed 3s after any local change, pulled on load.
   // ---------------------------------------------------------------------
   const GDRIVE_CLIENT_ID = '675940238157-ahcuged7kgcbcvsc8e6kun2s7nvg6n5h.apps.googleusercontent.com';
-  const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  // drive.appdata does the actual sync; userinfo.email is only so we can show
+  // *which* Google account is connected — appdata is scoped per-account, so
+  // two devices signed into different accounts will silently sync to two
+  // separate, unrelated folders and never see each other's data.
+  const GDRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.email';
   const GDRIVE_FILE_NAME = 'fitness_tracker_sync.json';
 
   const syncModalEl = document.getElementById('syncModal');
   const syncStatusEl = document.getElementById('syncStatus');
+  const syncAccountHintEl = document.getElementById('syncAccountHint');
   const btnGdriveSyncEl = document.getElementById('btnGdriveSync');
   const btnGdriveSignoutEl = document.getElementById('btnGdriveSignout');
+  const btnGdrivePullNowEl = document.getElementById('btnGdrivePullNow');
   const btnGdrivePushNowEl = document.getElementById('btnGdrivePushNow');
 
   let gdriveToken = null;
@@ -1502,15 +1508,30 @@
     localStorage.removeItem('gdrive_token');
     btnGdriveSyncEl.hidden = false;
     btnGdriveSignoutEl.hidden = true;
+    btnGdrivePullNowEl.hidden = true;
     btnGdrivePushNowEl.hidden = true;
+    syncAccountHintEl.hidden = true;
     setSyncStatus('已中斷 Google Drive 連結');
+  }
+
+  async function gdriveShowAccount() {
+    try {
+      const r = await gdriveFetch('https://www.googleapis.com/oauth2/v3/userinfo');
+      const info = await r.json();
+      if (info.email) {
+        syncAccountHintEl.textContent = `目前連結帳號：${info.email}　（兩台裝置要看到同一份資料，這裡必須完全一樣）`;
+        syncAccountHintEl.hidden = false;
+      }
+    } catch (e) { /* non-essential — just skip showing the account if this fails */ }
   }
 
   async function gdriveOnSignedIn() {
     btnGdriveSyncEl.hidden = true;
     btnGdriveSignoutEl.hidden = false;
+    btnGdrivePullNowEl.hidden = false;
     btnGdrivePushNowEl.hidden = false;
     setSyncStatus('☁️ 同步中...', 'var(--accent)');
+    gdriveShowAccount();
     await gdrivePull();
   }
 
@@ -1602,6 +1623,7 @@
   syncModalEl.addEventListener('click', (e) => { if (e.target === syncModalEl) syncModalEl.hidden = true; });
   btnGdriveSyncEl.addEventListener('click', gdriveSignIn);
   btnGdriveSignoutEl.addEventListener('click', gdriveSignOut);
+  btnGdrivePullNowEl.addEventListener('click', gdrivePull);
   btnGdrivePushNowEl.addEventListener('click', gdrivePush);
 
   // ---------------------------------------------------------------------
