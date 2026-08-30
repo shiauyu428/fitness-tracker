@@ -35,7 +35,10 @@
 
     <div id="exerciseList" class="exercise-list"></div>
 
-    <button class="btn btn-outline btn-block" id="addExerciseBtn">＋ 新增動作</button>
+    <div class="field-row">
+      <button class="btn btn-outline btn-block" id="addExerciseBtn">＋ 新增動作</button>
+      <button class="btn btn-outline btn-block" id="applyTemplateBtn">📋 套用範本</button>
+    </div>
 
     <div class="field">
       <label>訓練備註</label>
@@ -101,6 +104,12 @@
     <div class="card">
       <h3>部位訓練分布（近 30 天）</h3>
       <div id="bodyPartChart" class="chart-box"></div>
+    </div>
+
+    <div class="card">
+      <h3>動作追蹤</h3>
+      <select id="exerciseTrackSelect" class="text-input"></select>
+      <div id="exerciseTrackBody"></div>
     </div>
   </section>
 
@@ -293,6 +302,18 @@
     </div>
     <div id="shareModalBody"></div>
     <button class="btn btn-primary btn-block" id="copyShareTextBtn">複製為文字</button>
+  </div>
+</div>
+
+<!-- Workout templates modal ("下次訓練菜單") -->
+<div class="modal-backdrop" id="templatesModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>📋 訓練範本</h3>
+      <button class="btn-icon" id="closeTemplatesModal">✕</button>
+    </div>
+    <p class="hint">套用範本會帶入動作清單，重量次數自動抓上次實際數字，方便你當場微調。想新增範本，去歷史紀錄找一次訓練按「存成範本」。</p>
+    <div id="templatesList"></div>
   </div>
 </div>
 

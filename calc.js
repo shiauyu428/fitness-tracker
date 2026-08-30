@@ -143,6 +143,14 @@
     return Math.max(1, Math.round(30 * (100 / percent - 1)));
   }
 
+  // How close a given estimated 1RM is to the all-time-best estimated 1RM for
+  // that exercise, as a percentage — e.g. "this session was trained at 82% of
+  // your current 1RM". Guards against divide-by-zero when there's no PR yet.
+  function intensityPercent(estimated1RM, allTimeBest1RM) {
+    if (!allTimeBest1RM) return 0;
+    return (estimated1RM / allTimeBest1RM) * 100;
+  }
+
   const Calc = {
     epley1RM,
     bestSetEstimated1RM,
@@ -155,6 +163,7 @@
     bodyPartDistribution,
     weightForPercent,
     repsForPercent,
+    intensityPercent,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

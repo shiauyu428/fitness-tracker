@@ -239,20 +239,28 @@
     return results;
   }
 
-  // The most recent non-empty note ever left on this exact exercise name (no
-  // time window — this is meant to persist indefinitely, e.g. "J-hook height
-  // 13, safety bar 3" for a squat rack setup), so it can pre-fill next time.
-  function getLatestNoteForExercise(name) {
+  // The most recent instance of this exact exercise name across all history
+  // (no time window — used for things meant to persist indefinitely, like
+  // equipment setup notes or "what did I actually lift last time"). Returns
+  // the full exercise object (with .sets, .note, ...) or null.
+  function getLatestExerciseInstance(name) {
     let latest = null;
     sessions.forEach(s => {
       if (s.id === editingSessionId) return;
       s.exercises.forEach(ex => {
-        if (ex.name === name && ex.note) {
-          if (!latest || s.date > latest.date) latest = { date: s.date, note: ex.note };
+        if (ex.name === name) {
+          if (!latest || s.date > latest.date) latest = { date: s.date, ex };
         }
       });
     });
-    return latest ? latest.note : '';
+    return latest ? latest.ex : null;
+  }
+
+  // The most recent non-empty note ever left on this exact exercise name, e.g.
+  // "J-hook height 13, safety bar 3" for a squat rack setup, so it can pre-fill next time.
+  function getLatestNoteForExercise(name) {
+    const latest = getLatestExerciseInstance(name);
+    return (latest && latest.note) || '';
   }
 
   function sorenessReminderHtml(history) {
@@ -701,6 +709,85 @@
   sessionDateInput.addEventListener('input', autosaveDraft);
   document.getElementById('sessionNotes').addEventListener('input', autosaveDraft);
 
+  // ---- Workout templates ("下次訓練菜單") — a named, reusable exercise list.
+  // Templates only store *which* exercises (name/category/type), never fixed
+  // weights: applying one always pulls in whatever you actually lifted last
+  // time via getLatestExerciseInstance, so the numbers stay current. ----
+  const KEY_TEMPLATES = 'fitness_templates_v1';
+  function loadTemplates() {
+    try { return JSON.parse(localStorage.getItem(KEY_TEMPLATES)) || []; }
+    catch { return []; }
+  }
+  function saveTemplatesToStorage() { localStorage.setItem(KEY_TEMPLATES, JSON.stringify(templates)); }
+  let templates = loadTemplates();
+
+  const templatesModal = document.getElementById('templatesModal');
+  const templatesListEl = document.getElementById('templatesList');
+
+  function renderTemplatesList() {
+    if (templates.length === 0) {
+      templatesListEl.innerHTML = '<div class="empty-state">還沒有範本，去歷史紀錄找一次訓練按「存成範本」</div>';
+      return;
+    }
+    templatesListEl.innerHTML = templates.map(t => `
+      <div class="manager-preset-row">
+        <div>
+          <div class="manager-preset-name">${esc(t.name)}</div>
+          <span class="manager-preset-meta">${t.exercises.map(e => esc(e.name)).join('、')}</span>
+        </div>
+        <div class="ex-head-actions">
+          <button class="btn btn-sm btn-primary" data-action="apply-template" data-id="${t.id}">套用</button>
+          <button class="btn-icon" data-action="delete-template" data-id="${t.id}" title="刪除範本">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function applyTemplate(templateId) {
+    const t = templates.find(x => x.id === templateId);
+    if (!t) return;
+    t.exercises.forEach(item => {
+      const lastEx = getLatestExerciseInstance(item.name);
+      const sets = lastEx && lastEx.sets.length > 0
+        ? lastEx.sets.map(st => ({ ...st }))
+        : [defaultSetFor({ inputType: item.inputType }, null)];
+      draft.exercises.push({
+        id: uid(),
+        name: item.name,
+        category: item.category,
+        inputType: item.inputType || 'weight_reps',
+        unilateral: item.unilateral,
+        note: (lastEx && lastEx.note) || '',
+        sets,
+      });
+    });
+    renderDraft();
+    autosaveDraft();
+    templatesModal.hidden = true;
+    toast(`已套用範本「${t.name}」，重量次數已帶入上次數字`);
+  }
+
+  templatesListEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    if (btn.dataset.action === 'apply-template') {
+      applyTemplate(id);
+    } else if (btn.dataset.action === 'delete-template') {
+      const t = templates.find(x => x.id === id);
+      if (t && confirm(`確定要刪除範本「${t.name}」嗎？`)) {
+        templates = templates.filter(x => x.id !== id);
+        saveTemplatesToStorage();
+        renderTemplatesList();
+      }
+    }
+  });
+  document.getElementById('applyTemplateBtn').addEventListener('click', () => {
+    renderTemplatesList();
+    templatesModal.hidden = false;
+  });
+  document.getElementById('closeTemplatesModal').addEventListener('click', () => { templatesModal.hidden = true; });
+  templatesModal.addEventListener('click', (e) => { if (e.target === templatesModal) templatesModal.hidden = true; });
+
   function resetLogFormToNew() {
     editingSessionId = null;
     draft = { exercises: [] };
@@ -875,6 +962,7 @@
           <div class="session-actions">
             <button class="btn btn-sm btn-outline" data-action="edit" data-id="${s.id}">編輯</button>
             <button class="btn btn-sm btn-outline" data-action="share" data-id="${s.id}">📤 分享</button>
+            <button class="btn btn-sm btn-outline" data-action="save-template" data-id="${s.id}">📋 存成範本</button>
             <button class="btn btn-sm btn-danger" data-action="delete" data-id="${s.id}">刪除這筆紀錄</button>
           </div>
         </div>
@@ -895,6 +983,18 @@
       openSorenessModal(el.dataset.sessionId, el.dataset.exId);
     } else if (el.dataset.action === 'share') {
       openShareModal(id);
+    } else if (el.dataset.action === 'save-template') {
+      const s = sessions.find(x => x.id === id);
+      if (!s) return;
+      const name = prompt('這個範本要取什麼名字？（例如：推日、腿日A）', '');
+      if (!name || !name.trim()) return;
+      templates.push({
+        id: uid(),
+        name: name.trim(),
+        exercises: s.exercises.map(ex => ({ name: ex.name, category: ex.category, inputType: ex.inputType, unilateral: ex.unilateral })),
+      });
+      saveTemplatesToStorage();
+      toast(`已存成範本「${name.trim()}」`);
     } else if (el.dataset.action === 'delete') {
       const s = sessions.find(x => x.id === id);
       if (s && confirm(`確定要刪除 ${s.date} 的訓練紀錄嗎？此動作無法復原。`)) {
@@ -1126,6 +1226,55 @@
   // ---------------------------------------------------------------------
   // TAB 4: 圖表
   // ---------------------------------------------------------------------
+  // ---- Per-exercise tracking card: volume trend, estimated 1RM trend, and
+  // training intensity (%1RM) trend, all for one selected exercise. ----
+  const exerciseTrackSelectEl = document.getElementById('exerciseTrackSelect');
+
+  function exerciseTrackingSeries(name) {
+    const history = sessions
+      .filter(s => s.exercises.some(ex => ex.name === name))
+      .map(s => {
+        const ex = s.exercises.filter(e => e.name === name)
+          .sort((a, b) => window.Calc.bestSetEstimated1RM(b.sets) - window.Calc.bestSetEstimated1RM(a.sets))[0];
+        return { date: s.date, volume: window.Calc.exerciseVolume(ex), est1RM: window.Calc.bestSetEstimated1RM(ex.sets) };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const allTimeBest1RM = history.reduce((max, h) => Math.max(max, h.est1RM), 0);
+    history.forEach(h => { h.intensityPct = window.Calc.intensityPercent(h.est1RM, allTimeBest1RM); });
+    return { history, allTimeBest1RM };
+  }
+
+  function renderExerciseTracking(name) {
+    const bodyEl = document.getElementById('exerciseTrackBody');
+    if (!name) { bodyEl.innerHTML = ''; return; }
+    const { history, allTimeBest1RM } = exerciseTrackingSeries(name);
+    if (history.length === 0) {
+      bodyEl.innerHTML = '<div class="empty-state">還沒有這個動作的紀錄</div>';
+      return;
+    }
+    bodyEl.innerHTML = `
+      <div class="track-stat">目前估算1RM：<strong>${round1(allTimeBest1RM)} kg</strong>・共練過 ${history.length} 次</div>
+      <h4>訓練總量趨勢</h4>
+      <div class="chart-box">${buildLineChart(history.map(h => ({ label: fmtShort(h.date), value: round1(h.volume) })), { unit: 'kg' })}</div>
+      <h4>估算1RM趨勢</h4>
+      <div class="chart-box">${buildLineChart(history.map(h => ({ label: fmtShort(h.date), value: round1(h.est1RM) })), { unit: 'kg' })}</div>
+      <h4>訓練強度（占目前1RM的百分比）</h4>
+      <div class="chart-box">${buildLineChart(history.map(h => ({ label: fmtShort(h.date), value: round1(h.intensityPct) })), { unit: '%' })}</div>
+    `;
+  }
+
+  exerciseTrackSelectEl.addEventListener('change', () => renderExerciseTracking(exerciseTrackSelectEl.value));
+
+  function populateExerciseTrackSelect() {
+    const names = allExerciseNames().map(([n]) => n);
+    const prevValue = exerciseTrackSelectEl.value;
+    exerciseTrackSelectEl.innerHTML = names.length
+      ? names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')
+      : '<option value="">還沒有重量×次數類的紀錄</option>';
+    if (names.includes(prevValue)) exerciseTrackSelectEl.value = prevValue;
+    renderExerciseTracking(exerciseTrackSelectEl.value);
+  }
+
   function renderCharts() {
     // Weekly volume
     const weeks = window.Calc.weeklyVolumes(sessions, 12, todayStr());
@@ -1144,6 +1293,8 @@
     document.getElementById('bodyPartChart').innerHTML = entries.length
       ? buildHBarChart(entries.map(([label, value]) => ({ label, value })), { unit: '組' })
       : '<div class="empty-state">近 30 天還沒有訓練紀錄</div>';
+
+    populateExerciseTrackSelect();
   }
 
   // ---------------------------------------------------------------------

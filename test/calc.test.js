@@ -125,6 +125,20 @@
     assertEqual(Calc.repsForPercent(60), 20);
   });
 
+  // ---- intensityPercent (per-exercise chart: how close a session's estimated
+  // 1RM was to the all-time best, i.e. what %1RM zone it was trained in) ----
+  test('intensityPercent: session at the all-time best is 100%', () => {
+    assertEqual(Calc.intensityPercent(100, 100), 100);
+  });
+
+  test('intensityPercent: scales proportionally below the best', () => {
+    assertClose(Calc.intensityPercent(80, 100), 80);
+  });
+
+  test('intensityPercent: no history yet (0 denominator) returns 0, not NaN/Infinity', () => {
+    assertEqual(Calc.intensityPercent(80, 0), 0);
+  });
+
   // ---- bodyPartDistribution ----
   test('bodyPartDistribution: counts sets per category within a date range', () => {
     const sessions = [

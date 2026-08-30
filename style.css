@@ -66,6 +66,7 @@ body {
 .field-row { display: flex; gap: 8px; margin-bottom: 14px; }
 .field-row .date-input { flex: 1.2; }
 .field-row .text-input { flex: 1; }
+.field-row .btn-block { flex: 1; width: auto; }
 
 input, textarea, select {
   font-family: inherit;
@@ -236,6 +237,8 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
   margin-bottom: 14px;
 }
 .card h3 { margin: 0 0 10px; font-size: 15px; }
+.card h4 { margin: 14px 0 6px; font-size: 13px; color: var(--text-dim); font-weight: 600; }
+.track-stat { font-size: 14px; margin-top: 10px; }
 .chart-box { width: 100%; overflow-x: auto; }
 .chart-box svg { display: block; width: 100%; height: auto; }
 
