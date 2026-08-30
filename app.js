@@ -863,7 +863,8 @@
       <div class="session-item">
         <div class="session-item-head" data-action="toggle" data-id="${s.id}">
           <div><div class="date">${s.date}（${fmtWeekday(s.date)}）</div>
-            <div class="meta">${s.exercises.length} 個動作・${setCount} 組・共 ${round1(vol)} kg</div></div>
+            <div class="meta">${s.exercises.length} 個動作・${setCount} 組・共 ${round1(vol)} kg</div>
+            <div class="meta ex-names">${s.exercises.map(ex => esc(ex.name)).join('、')}</div></div>
           <div>${open ? '▲' : '▼'}</div>
         </div>
         <div class="session-item-body ${open ? 'open' : ''}">

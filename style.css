@@ -180,6 +180,7 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 .session-item-head { display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
 .session-item-head .date { font-weight: 700; }
 .session-item-head .meta { color: var(--text-dim); font-size: 13px; }
+.session-item-head .ex-names { color: var(--text); font-size: 13px; margin-top: 2px; }
 .session-item-body { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); display: none; }
 .session-item-body.open { display: block; }
 .session-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
