@@ -1695,6 +1695,7 @@
   async function gdriveInit() {
     const saved = localStorage.getItem('gdrive_token');
     if (!saved) return;
+    let wasPreviouslyConnected = true;
     try {
       const t = JSON.parse(saved);
       if (t.expires_at > Date.now() + 60000) {
@@ -1702,9 +1703,22 @@
         await gdriveOnSignedIn();
         return;
       }
-    } catch (e) { /* malformed cached token — fall through and clear it */ }
+    } catch (e) { wasPreviouslyConnected = false; /* malformed cached token — fall through and clear it */ }
     localStorage.removeItem('gdrive_token');
+    // Was connected before but the login quietly expired since the last visit —
+    // say so instead of just reverting to "not connected" with no explanation.
+    if (wasPreviouslyConnected) {
+      document.getElementById('openSyncModal').classList.add('sync-warn');
+      toast('☁️ Google Drive 連線已過期，記得重新連結才能繼續同步');
+    }
   }
+
+  // Kick this off as early as possible (app init, and again when the sync
+  // modal opens) rather than only on the connect click. If the GIS script is
+  // still loading at the moment requestAccessToken() runs, the `await` in
+  // between consumes the browser's "real click" activation token, and the
+  // login popup silently gets blocked — the classic "have to click twice" bug.
+  gdriveLoadScript().catch(() => { /* will retry + surface the error on click */ });
 
   async function gdriveSignIn() {
     setSyncStatus('載入中...', 'var(--accent)');
@@ -1726,7 +1740,11 @@
     client.requestAccessToken();
   }
 
-  function gdriveSignOut() {
+  // dueToExpiry: true when this was triggered by a failed/expired API call
+  // (not a deliberate manual disconnect) — shows a toast and flags the header
+  // icon red, since this can otherwise happen silently while the sync modal
+  // isn't open and just quietly stop auto-syncing for good.
+  function gdriveSignOut(dueToExpiry) {
     if (gdriveToken && typeof google !== 'undefined') {
       google.accounts.oauth2.revoke(gdriveToken.access_token, () => {});
     }
@@ -1738,7 +1756,13 @@
     btnGdrivePullNowEl.hidden = true;
     btnGdrivePushNowEl.hidden = true;
     syncAccountHintEl.hidden = true;
-    setSyncStatus('已中斷 Google Drive 連結');
+    document.getElementById('openSyncModal').classList.toggle('sync-warn', !!dueToExpiry);
+    if (dueToExpiry) {
+      setSyncStatus('連線已過期，請重新連結', 'var(--red)');
+      toast('☁️ Google Drive 連線已過期，記得點右上角重新連結');
+    } else {
+      setSyncStatus('已中斷 Google Drive 連結');
+    }
   }
 
   async function gdriveShowAccount() {
@@ -1757,6 +1781,7 @@
     btnGdriveSignoutEl.hidden = false;
     btnGdrivePullNowEl.hidden = false;
     btnGdrivePushNowEl.hidden = false;
+    document.getElementById('openSyncModal').classList.remove('sync-warn');
     setSyncStatus('☁️ 同步中...', 'var(--accent)');
     gdriveShowAccount();
     await gdrivePull();
@@ -1766,7 +1791,7 @@
     opts = opts || {};
     opts.headers = Object.assign({}, opts.headers, { Authorization: `Bearer ${gdriveToken.access_token}` });
     const r = await fetch(url, opts);
-    if (r.status === 401) { gdriveSignOut(); throw new Error('登入已過期，請重新連結'); }
+    if (r.status === 401) { gdriveSignOut(true); throw new Error('登入已過期，請重新連結'); }
     return r;
   }
 
@@ -1845,11 +1870,14 @@
     gdriveSyncTimer = setTimeout(gdrivePush, 3000);
   }
 
-  document.getElementById('openSyncModal').addEventListener('click', () => { syncModalEl.hidden = false; });
+  document.getElementById('openSyncModal').addEventListener('click', () => {
+    syncModalEl.hidden = false;
+    gdriveLoadScript().catch(() => {}); // in case the app-load preload above failed (e.g. offline at the time)
+  });
   document.getElementById('closeSyncModal').addEventListener('click', () => { syncModalEl.hidden = true; });
   syncModalEl.addEventListener('click', (e) => { if (e.target === syncModalEl) syncModalEl.hidden = true; });
   btnGdriveSyncEl.addEventListener('click', gdriveSignIn);
-  btnGdriveSignoutEl.addEventListener('click', gdriveSignOut);
+  btnGdriveSignoutEl.addEventListener('click', () => gdriveSignOut(false));
   btnGdrivePullNowEl.addEventListener('click', gdrivePull);
   btnGdrivePushNowEl.addEventListener('click', gdrivePush);
 

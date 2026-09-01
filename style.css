@@ -52,7 +52,16 @@ body {
 .brand { font-weight: 700; font-size: 18px; }
 .today { color: var(--text-dim); font-size: 13px; }
 .header-right { display: flex; align-items: center; gap: 4px; }
-.header-right .btn-icon { font-size: 18px; padding: 2px 4px; }
+.header-right .btn-icon { font-size: 18px; padding: 2px 4px; position: relative; }
+.header-right .btn-icon.sync-warn::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  border: 1.5px solid var(--bg);
+}
 
 #app { max-width: 640px; margin: 0 auto; padding: 16px; }
 
