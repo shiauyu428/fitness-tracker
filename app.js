@@ -308,36 +308,56 @@
       value="${s.rir === '' || s.rir == null ? '' : s.rir}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="rir" title="保留次數 (Reps in Reserve)">`;
   }
 
+  // Checking this off marks the set done (highlights the row) and auto-starts
+  // the floating rest timer using this exercise's configured rest duration —
+  // "key in the plan ahead of time, just tap through it during the workout."
+  function doneBtnHtml(ex, s, i) {
+    const done = !!s.done;
+    return `<button class="set-done-btn${done ? ' done' : ''}" data-action="toggle-done" data-ex-id="${ex.id}" data-set-idx="${i}" title="標記這組完成，並開始休息計時">${done ? '✓' : ''}</button>`;
+  }
+
   function setRowHtml(ex, s, i) {
+    const doneClass = s.done ? ' set-row-done' : '';
     if (ex.inputType === 'reps_only') {
       return `
-        <div class="set-row-2">
+        <div class="set-row-2${doneClass}">
           <span class="set-idx">${i + 1}</span>
           <input type="number" inputmode="numeric" placeholder="次數" step="1" min="0"
             value="${s.reps === '' ? '' : s.reps}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="reps">
           ${rirSlotHtml(ex, s, i)}
+          ${doneBtnHtml(ex, s, i)}
           <button class="rm-set" data-action="remove-set" data-ex-id="${ex.id}" data-set-idx="${i}" title="移除這組">✕</button>
         </div>`;
     }
     if (ex.inputType === 'duration') {
       return `
-        <div class="set-row-1">
+        <div class="set-row-1b${doneClass}">
           <span class="set-idx">${i + 1}</span>
           <input type="number" inputmode="numeric" placeholder="秒數" step="1" min="0"
             value="${s.seconds === '' ? '' : s.seconds}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="seconds">
+          ${doneBtnHtml(ex, s, i)}
           <button class="rm-set" data-action="remove-set" data-ex-id="${ex.id}" data-set-idx="${i}" title="移除這組">✕</button>
         </div>`;
     }
     return `
-      <div class="set-row">
+      <div class="set-row${doneClass}">
         <span class="set-idx">${i + 1}</span>
         <input type="number" inputmode="decimal" placeholder="${ex.unilateral ? '單邊重量 kg' : '重量 kg'}" step="0.5" min="0"
           value="${s.weight === '' ? '' : s.weight}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="weight">
         <input type="number" inputmode="numeric" placeholder="次數" step="1" min="0"
           value="${s.reps === '' ? '' : s.reps}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="reps">
         ${rirSlotHtml(ex, s, i)}
+        ${doneBtnHtml(ex, s, i)}
         <button class="rm-set" data-action="remove-set" data-ex-id="${ex.id}" data-set-idx="${i}" title="移除這組">✕</button>
       </div>`;
+  }
+
+  const REST_OPTIONS = [30, 60, 90, 120, 150, 180, 240, 300];
+  function restSelectHtml(ex) {
+    const current = ex.restSeconds || 90;
+    return `<select class="rest-select" data-ex-id="${ex.id}" title="組間休息時間">
+      ${REST_OPTIONS.map(s => `<option value="${s}"${s === current ? ' selected' : ''}>⏱ ${fmtMMSS(s)}</option>`).join('')}
+    </select>`;
   }
 
   function renderExerciseList() {
@@ -361,6 +381,7 @@
         <button class="add-set-btn" data-action="add-set" data-ex-id="${ex.id}">＋ 新增一組</button>
         <div class="exercise-card-foot">
           <span class="exercise-vol" data-vol-for="${ex.id}">${exerciseFooterText(ex)}</span>
+          ${restSelectHtml(ex)}
         </div>
       </div>
     `).join('');
@@ -382,6 +403,12 @@
     if (t.classList.contains('ex-note-input')) {
       const noteEx = draft.exercises.find(x => x.id === t.dataset.exId);
       if (noteEx) noteEx.note = t.value;
+      return;
+    }
+    if (t.classList.contains('rest-select')) {
+      const restEx = draft.exercises.find(x => x.id === t.dataset.exId);
+      if (restEx) restEx.restSeconds = parseInt(t.value);
+      autosaveDraft();
       return;
     }
     if (!t.dataset.field) return;
@@ -423,6 +450,16 @@
     } else if (btn.dataset.action === 'add-rir') {
       const set = ex.sets[parseInt(btn.dataset.setIdx)];
       if (set) set.rir = '';
+    } else if (btn.dataset.action === 'toggle-done') {
+      const set = ex.sets[parseInt(btn.dataset.setIdx)];
+      if (!set) return;
+      const wasDone = !!set.done;
+      set.done = !wasDone;
+      if (!wasDone && set.done) {
+        const secs = ex.restSeconds || 90;
+        startTimer(secs);
+        toast(`✅ 完成！休息 ${fmtMMSS(secs)} 倒數中`);
+      }
     } else if (btn.dataset.action === 'move-up') {
       const i = draft.exercises.findIndex(x => x.id === exId);
       if (i > 0) [draft.exercises[i - 1], draft.exercises[i]] = [draft.exercises[i], draft.exercises[i - 1]];
@@ -579,9 +616,11 @@
     if (!name) { toast('請輸入動作名稱'); return; }
     if (currentVariants && selectedVariant) name += `（${selectedVariant}）`;
     if (isRegression) name += '（退階）';
+    const lastInstance = getLatestExerciseInstance(name);
     draft.exercises.push({
       id: uid(), name, category: selectedCategory, inputType: currentInputType, unilateral: isUnilateral,
-      note: getLatestNoteForExercise(name),
+      note: (lastInstance && lastInstance.note) || '',
+      restSeconds: (lastInstance && lastInstance.restSeconds) || 90,
       sets: [defaultSetFor({ inputType: currentInputType }, null)],
     });
     closeModal();
@@ -791,6 +830,7 @@
         inputType: item.inputType || 'weight_reps',
         unilateral: item.unilateral,
         note: (lastEx && lastEx.note) || '',
+        restSeconds: (lastEx && lastEx.restSeconds) || 90,
         sets,
       });
     });
@@ -846,6 +886,7 @@
         unilateral: ex.unilateral,
         soreness: ex.soreness,
         note: ex.note,
+        restSeconds: ex.restSeconds || 90,
         sets: ex.sets.map(st => ({ ...st })),
       })),
     };
@@ -864,7 +905,7 @@
     const cleanExercises = draft.exercises
       .map(ex => ({
         id: ex.id, name: ex.name, category: ex.category, inputType: ex.inputType, unilateral: ex.unilateral,
-        soreness: ex.soreness, note: (ex.note || '').trim(),
+        soreness: ex.soreness, note: (ex.note || '').trim(), restSeconds: ex.restSeconds || 90,
         sets: cleanSetsFor(ex),
       }))
       .filter(ex => ex.sets.length > 0);
