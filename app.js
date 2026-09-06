@@ -1882,10 +1882,52 @@
   btnGdrivePushNowEl.addEventListener('click', gdrivePush);
 
   // ---------------------------------------------------------------------
+  // Recent-focus goals board ("公佈欄") — 1-3 short reminders, always
+  // pinned at the top of the Log tab.
+  // ---------------------------------------------------------------------
+  const KEY_GOALS = 'fitness_goals_v1';
+  function loadGoals() {
+    try { return JSON.parse(localStorage.getItem(KEY_GOALS)) || []; }
+    catch { return []; }
+  }
+  function saveGoalsToStorage() { localStorage.setItem(KEY_GOALS, JSON.stringify(goals)); }
+  let goals = loadGoals();
+
+  function renderGoalsBoard() {
+    const listEl = document.getElementById('goalsList');
+    const nonEmpty = goals.filter(g => g && g.trim());
+    listEl.innerHTML = nonEmpty.length
+      ? nonEmpty.map(g => `<div class="goal-item">🎯 ${esc(g)}</div>`).join('')
+      : '<div class="goals-empty">還沒有設定目標，點右上角 ✏️ 新增</div>';
+  }
+
+  const goalsModal = document.getElementById('goalsModal');
+  document.getElementById('editGoalsBtn').addEventListener('click', () => {
+    document.getElementById('goalInput1').value = goals[0] || '';
+    document.getElementById('goalInput2').value = goals[1] || '';
+    document.getElementById('goalInput3').value = goals[2] || '';
+    goalsModal.hidden = false;
+  });
+  document.getElementById('closeGoalsModal').addEventListener('click', () => { goalsModal.hidden = true; });
+  goalsModal.addEventListener('click', (e) => { if (e.target === goalsModal) goalsModal.hidden = true; });
+  document.getElementById('saveGoalsBtn').addEventListener('click', () => {
+    goals = [
+      document.getElementById('goalInput1').value.trim(),
+      document.getElementById('goalInput2').value.trim(),
+      document.getElementById('goalInput3').value.trim(),
+    ].filter(g => g);
+    saveGoalsToStorage();
+    renderGoalsBoard();
+    goalsModal.hidden = true;
+    toast('已更新近期目標');
+  });
+
+  // ---------------------------------------------------------------------
   // Init
   // ---------------------------------------------------------------------
   document.getElementById('todayLabel').textContent = todayStr();
   restoreDraftIfAny();
   renderDraft();
+  renderGoalsBoard();
   gdriveInit();
 })();
