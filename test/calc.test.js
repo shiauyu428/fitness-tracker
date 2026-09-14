@@ -30,6 +30,16 @@
     assertEqual(Calc.bestSetEstimated1RM([]), 0);
   });
 
+  test('bestSetEstimated1RM: warm-up sets are ignored even if they look impressive', () => {
+    // A 100kg x5 "warm-up" would estimate ~116.7kg, way above the real working set —
+    // it must not win just because the math looks bigger.
+    const sets = [
+      { weight: 100, reps: 5, warmup: true },
+      { weight: 60, reps: 10 },
+    ];
+    assertClose(Calc.bestSetEstimated1RM(sets), 80, 0.01); // 60*(1+10/30)=80
+  });
+
   // ---- sessionVolume ----
   test('sessionVolume: sums weight*reps across all exercises and sets', () => {
     const session = {
@@ -62,6 +72,11 @@
     assertEqual(Calc.exerciseVolume(ex), 80);
   });
 
+  test('exerciseVolume: warm-up sets do not count toward training volume', () => {
+    const ex = { sets: [{ weight: 20, reps: 5, warmup: true }, { weight: 60, reps: 10 }] };
+    assertEqual(Calc.exerciseVolume(ex), 600); // only the 60x10 working set counts
+  });
+
   // ---- computePR ----
   test('computePR: finds max estimated 1RM for an exercise across sessions, with date', () => {
     const sessions = [
@@ -77,6 +92,18 @@
 
   test('computePR: exercise with no history returns null', () => {
     assertEqual(Calc.computePR([], 'Deadlift'), null);
+  });
+
+  test('computePR: ignores warm-up sets when finding the best 1RM', () => {
+    const sessions = [
+      { date: '2026-08-01', exercises: [{ name: 'Bench', sets: [
+        { weight: 100, reps: 5, warmup: true }, // would estimate ~116.7 if counted
+        { weight: 60, reps: 10 }, // real working set, est. 1RM = 80
+      ] }] },
+    ];
+    const pr = Calc.computePR(sessions, 'Bench');
+    assertClose(pr.best1RM, 80, 0.01);
+    assertEqual(pr.maxWeight, 60);
   });
 
   // ---- isoWeekKey ----

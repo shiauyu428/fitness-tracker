@@ -9,9 +9,12 @@
     return weight * (1 + reps / 30);
   }
 
+  // Warm-up sets are excluded here (and everywhere else 1RM/volume is derived)
+  // — they're sub-maximal by definition, so counting them would understate how
+  // hard a "PR" really was, or inflate training volume with ramp-up reps.
   function bestSetEstimated1RM(sets) {
     if (!sets || sets.length === 0) return 0;
-    return sets.reduce((max, s) => Math.max(max, epley1RM(s.weight, s.reps)), 0);
+    return sets.reduce((max, s) => s.warmup ? max : Math.max(max, epley1RM(s.weight, s.reps)), 0);
   }
 
   // For unilateral exercises, `weight` is the load on ONE side (e.g. one dumbbell);
@@ -19,7 +22,7 @@
   function exerciseVolume(exercise) {
     if (!exercise || !exercise.sets) return 0;
     const multiplier = exercise.unilateral ? 2 : 1;
-    return exercise.sets.reduce((sum, s) => sum + (s.weight || 0) * (s.reps || 0), 0) * multiplier;
+    return exercise.sets.reduce((sum, s) => s.warmup ? sum : sum + (s.weight || 0) * (s.reps || 0), 0) * multiplier;
   }
 
   function sessionVolume(session) {
@@ -36,6 +39,7 @@
       for (const ex of session.exercises || []) {
         if (ex.name !== exerciseName) continue;
         for (const set of ex.sets || []) {
+          if (set.warmup) continue;
           const est = epley1RM(set.weight, set.reps);
           if (!best || est > best.best1RM) {
             best = { best1RM: est, maxWeight: set.weight, reps: set.reps, date: session.date };

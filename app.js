@@ -195,15 +195,19 @@
     return draft.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
   }
 
+  // Working (non-warm-up) sets only — mirrors calc.js's own warmup exclusion
+  // for exercise types calc.js doesn't handle the totals for (reps-only, duration).
+  function workingSets(ex) { return ex.sets.filter(s => !s.warmup); }
+
   // Per-exercise footer summary, depending on how this exercise is logged.
   function exerciseFooterText(ex) {
     const sideMul = ex.unilateral ? 2 : 1;
     if (ex.inputType === 'reps_only') {
-      const total = ex.sets.reduce((s, x) => s + (Number(x.reps) || 0), 0) * sideMul;
+      const total = workingSets(ex).reduce((s, x) => s + (Number(x.reps) || 0), 0) * sideMul;
       return ex.unilateral ? `總次數：${total} 下（左右各算）` : `總次數：${total} 下`;
     }
     if (ex.inputType === 'duration') {
-      const total = ex.sets.reduce((s, x) => s + (Number(x.seconds) || 0), 0) * sideMul;
+      const total = workingSets(ex).reduce((s, x) => s + (Number(x.seconds) || 0), 0) * sideMul;
       return ex.unilateral ? `總時間：${total} 秒（左右各算）` : `總時間：${total} 秒`;
     }
     const vol = round1(window.Calc.exerciseVolume(ex));
@@ -212,10 +216,11 @@
 
   // Generic single-number "how much was done" for an exercise, regardless of
   // logging type: kg for weight×reps, total reps for reps-only, total seconds for duration.
+  // Warm-up sets are excluded, same as calc.js does for the weight×reps case.
   function exerciseMetric(ex) {
     const sideMul = ex.unilateral ? 2 : 1;
-    if (ex.inputType === 'reps_only') return ex.sets.reduce((s, x) => s + (Number(x.reps) || 0), 0) * sideMul;
-    if (ex.inputType === 'duration') return ex.sets.reduce((s, x) => s + (Number(x.seconds) || 0), 0) * sideMul;
+    if (ex.inputType === 'reps_only') return workingSets(ex).reduce((s, x) => s + (Number(x.reps) || 0), 0) * sideMul;
+    if (ex.inputType === 'duration') return workingSets(ex).reduce((s, x) => s + (Number(x.seconds) || 0), 0) * sideMul;
     return window.Calc.exerciseVolume(ex);
   }
   function exerciseMetricUnit(ex) {
@@ -316,12 +321,20 @@
     return `<button class="set-done-btn${done ? ' done' : ''}" data-action="toggle-done" data-ex-id="${ex.id}" data-set-idx="${i}" title="標記這組完成，並開始休息計時">${done ? '✓' : ''}</button>`;
   }
 
+  // The set-index badge doubles as the warm-up toggle — tapping it marks that
+  // set a warm-up (🔥) instead of adding a whole extra column to an already
+  // tight row. Warm-up sets are excluded from volume/PR everywhere else.
+  function setIdxBtnHtml(ex, s, i) {
+    const isWarmup = !!s.warmup;
+    return `<button class="set-idx-btn${isWarmup ? ' warmup' : ''}" data-action="toggle-warmup" data-ex-id="${ex.id}" data-set-idx="${i}" title="點一下標記/取消為熱身組">${isWarmup ? '🔥' : i + 1}</button>`;
+  }
+
   function setRowHtml(ex, s, i) {
     const doneClass = s.done ? ' set-row-done' : '';
     if (ex.inputType === 'reps_only') {
       return `
         <div class="set-row-2${doneClass}">
-          <span class="set-idx">${i + 1}</span>
+          ${setIdxBtnHtml(ex, s, i)}
           <input type="number" inputmode="numeric" placeholder="次數" step="1" min="0"
             value="${s.reps === '' ? '' : s.reps}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="reps">
           ${rirSlotHtml(ex, s, i)}
@@ -332,7 +345,7 @@
     if (ex.inputType === 'duration') {
       return `
         <div class="set-row-1b${doneClass}">
-          <span class="set-idx">${i + 1}</span>
+          ${setIdxBtnHtml(ex, s, i)}
           <input type="number" inputmode="numeric" placeholder="秒數" step="1" min="0"
             value="${s.seconds === '' ? '' : s.seconds}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="seconds">
           ${doneBtnHtml(ex, s, i)}
@@ -341,7 +354,7 @@
     }
     return `
       <div class="set-row${doneClass}">
-        <span class="set-idx">${i + 1}</span>
+        ${setIdxBtnHtml(ex, s, i)}
         <input type="number" inputmode="decimal" placeholder="${ex.unilateral ? '單邊重量 kg' : '重量 kg'}" step="0.5" min="0"
           value="${s.weight === '' ? '' : s.weight}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="weight">
         <input type="number" inputmode="numeric" placeholder="次數" step="1" min="0"
@@ -450,6 +463,9 @@
     } else if (btn.dataset.action === 'add-rir') {
       const set = ex.sets[parseInt(btn.dataset.setIdx)];
       if (set) set.rir = '';
+    } else if (btn.dataset.action === 'toggle-warmup') {
+      const set = ex.sets[parseInt(btn.dataset.setIdx)];
+      if (set) set.warmup = !set.warmup;
     } else if (btn.dataset.action === 'toggle-done') {
       const set = ex.sets[parseInt(btn.dataset.setIdx)];
       if (!set) return;
@@ -731,21 +747,24 @@
   function rirFieldFor(s) {
     return s.rir !== '' && s.rir != null ? { rir: Number(s.rir) } : {};
   }
+  function warmupFieldFor(s) {
+    return s.warmup ? { warmup: true } : {};
+  }
 
   function cleanSetsFor(ex) {
     if (ex.inputType === 'reps_only') {
       return ex.sets
         .filter(s => s.reps !== '' && Number(s.reps) > 0)
-        .map(s => ({ reps: Number(s.reps), ...rirFieldFor(s) }));
+        .map(s => ({ reps: Number(s.reps), ...rirFieldFor(s), ...warmupFieldFor(s) }));
     }
     if (ex.inputType === 'duration') {
       return ex.sets
         .filter(s => s.seconds !== '' && Number(s.seconds) > 0)
-        .map(s => ({ seconds: Number(s.seconds) }));
+        .map(s => ({ seconds: Number(s.seconds), ...warmupFieldFor(s) }));
     }
     return ex.sets
       .filter(s => s.weight !== '' && s.reps !== '' && Number(s.weight) >= 0 && Number(s.reps) > 0)
-      .map(s => ({ weight: Number(s.weight), reps: Number(s.reps), ...rirFieldFor(s) }));
+      .map(s => ({ weight: Number(s.weight), reps: Number(s.reps), ...rirFieldFor(s), ...warmupFieldFor(s) }));
   }
 
   const logTitleEl = document.getElementById('logTitle');
@@ -955,21 +974,24 @@
 
   function formatSetLabel(ex, s) {
     const rirSuffix = (s.rir !== undefined && s.rir !== null && s.rir !== '') ? ` (RIR ${s.rir})` : '';
-    if (ex.inputType === 'reps_only') return `${s.reps}下${rirSuffix}`;
-    if (ex.inputType === 'duration') return `${s.seconds}秒`;
-    return (ex.unilateral ? `${s.weight}+${s.weight}kg×${s.reps}` : `${s.weight}kg×${s.reps}`) + rirSuffix;
+    const warmupPrefix = s.warmup ? '🔥' : '';
+    if (ex.inputType === 'reps_only') return `${warmupPrefix}${s.reps}下${rirSuffix}`;
+    if (ex.inputType === 'duration') return `${warmupPrefix}${s.seconds}秒`;
+    return warmupPrefix + (ex.unilateral ? `${s.weight}+${s.weight}kg×${s.reps}` : `${s.weight}kg×${s.reps}`) + rirSuffix;
   }
   function exerciseSubtotalLabel(ex) {
     const sideMul = ex.unilateral ? 2 : 1;
+    const hasWarmup = ex.sets.some(s => s.warmup);
+    const warmupNote = hasWarmup ? '，不含熱身' : '';
     if (ex.inputType === 'reps_only') {
-      const total = ex.sets.reduce((s, x) => s + (Number(x.reps) || 0), 0) * sideMul;
-      return ex.unilateral ? `共 ${total} 下（左右各算）` : `共 ${total} 下`;
+      const total = workingSets(ex).reduce((s, x) => s + (Number(x.reps) || 0), 0) * sideMul;
+      return ex.unilateral ? `共 ${total} 下（左右各算${warmupNote}）` : `共 ${total} 下${hasWarmup ? '（不含熱身）' : ''}`;
     }
     if (ex.inputType === 'duration') {
-      const total = ex.sets.reduce((s, x) => s + (Number(x.seconds) || 0), 0) * sideMul;
-      return ex.unilateral ? `共 ${total} 秒（左右各算）` : `共 ${total} 秒`;
+      const total = workingSets(ex).reduce((s, x) => s + (Number(x.seconds) || 0), 0) * sideMul;
+      return ex.unilateral ? `共 ${total} 秒（左右各算${warmupNote}）` : `共 ${total} 秒${hasWarmup ? '（不含熱身）' : ''}`;
     }
-    return `小計 ${round1(window.Calc.exerciseVolume(ex))} kg`;
+    return `小計 ${round1(window.Calc.exerciseVolume(ex))} kg${hasWarmup ? '（不含熱身）' : ''}`;
   }
 
   // Single "total for this exercise" figure, formatted with its unit — kg for
@@ -1124,32 +1146,66 @@
   });
 
   // ---- Share / export view (for showing a coach) ----
+  // Every set gets its own line ("訓練組 N: ..." / "熱身 N: ..."), matching the
+  // per-set log format lifters are used to reading, rather than a summarized total.
   const shareModal = document.getElementById('shareModal');
   const shareModalBodyEl = document.getElementById('shareModalBody');
   let shareText = '';
 
+  function shareSetLine(ex, s, label) {
+    const rirSuffix = (s.rir !== undefined && s.rir !== null && s.rir !== '') ? ` (RIR ${s.rir})` : '';
+    if (ex.inputType === 'reps_only') return `${label}: ${s.reps} 次${rirSuffix}`;
+    if (ex.inputType === 'duration') return `${label}: ${fmtMMSS(s.seconds)}`;
+    const weightStr = ex.unilateral ? `${s.weight}+${s.weight}` : `${s.weight}`;
+    return `${label}: ${weightStr} kg × ${s.reps}${rirSuffix}`;
+  }
+
+  // Working sets numbered "訓練組 1, 2, 3…" and warm-ups separately "熱身 1, 2…",
+  // in whichever order they were actually performed.
+  function exerciseShareLines(ex) {
+    const lines = [];
+    let workingIdx = 0, warmupIdx = 0;
+    ex.sets.forEach(st => {
+      if (st.warmup) {
+        warmupIdx++;
+        lines.push(shareSetLine(ex, st, `熱身 ${warmupIdx}`));
+      } else {
+        workingIdx++;
+        lines.push(shareSetLine(ex, st, `訓練組 ${workingIdx}`));
+      }
+    });
+    return lines;
+  }
+
   function buildShareText(s) {
     const lines = [`🏋️ ${s.date}（${fmtWeekday(s.date)}）訓練紀錄`, ''];
-    s.exercises.forEach(ex => {
-      const setsStr = ex.sets.map(st => formatSetLabel(ex, st)).join('、');
-      lines.push(`${ex.name}：${setsStr}（總量 ${exerciseTotalLabel(ex)}）`);
+    s.exercises.forEach((ex, i) => {
+      if (i > 0) lines.push('');
+      lines.push(ex.name + (ex.unilateral ? '（單邊）' : ''));
+      lines.push(...exerciseShareLines(ex));
+      if (ex.note) lines.push(`備註: ${ex.note}`);
     });
-    if (s.notes) { lines.push(''); lines.push(`備註：${s.notes}`); }
+    if (s.notes) { lines.push(''); lines.push(`訓練備註: ${s.notes}`); }
     return lines.join('\n');
+  }
+
+  function exerciseShareBlockHtml(ex) {
+    return `
+      <div class="share-exercise-block">
+        <div class="share-exercise-name">${esc(ex.name)}${ex.unilateral ? '<span class="uni-badge">單邊</span>' : ''}</div>
+        ${exerciseShareLines(ex).map(l => `<div class="share-set-line">${esc(l)}</div>`).join('')}
+        ${ex.note ? `<div class="share-note-line">備註: ${esc(ex.note)}</div>` : ''}
+      </div>`;
   }
 
   function openShareModal(sessionId) {
     const s = sessions.find(x => x.id === sessionId);
     if (!s) return;
-    const setCount = s.exercises.reduce((n, ex) => n + ex.sets.length, 0);
     shareModalBodyEl.innerHTML = `
       <div class="share-head">
         <div class="share-date">${s.date}（${fmtWeekday(s.date)}）</div>
-        <div class="share-meta">${s.exercises.length} 個動作・${setCount} 組</div>
       </div>
-      <div class="ex-table">
-        ${s.exercises.map(ex => exerciseTableRowHtml(ex, null)).join('')}
-      </div>
+      ${s.exercises.map(ex => exerciseShareBlockHtml(ex)).join('')}
       ${s.notes ? `<div class="session-notes">📝 ${esc(s.notes)}</div>` : ''}
     `;
     shareText = buildShareText(s);
