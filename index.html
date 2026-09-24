@@ -13,6 +13,7 @@
 <header class="app-header">
   <div class="brand">🏋️ 健身紀錄</div>
   <div class="header-right">
+    <button class="btn-icon" id="openAiExport" title="匯出給 AI 分析">🤖</button>
     <button class="btn-icon" id="openExerciseManager" title="動作管理">⚙️</button>
     <button class="btn-icon" id="openSyncModal" title="Google Drive 同步">☁️</button>
     <div class="today" id="todayLabel"></div>
@@ -205,10 +206,11 @@
     <div class="field">
       <div class="chip-row">
         <button class="chip" id="regressionToggle">退階版本</button>
-        <button class="chip" id="unilateralToggle">單邊動作（左右分開）</button>
+        <button class="chip" id="unilateralToggle">單邊動作（左右各做）</button>
+        <button class="chip" id="dualWeightToggle">雙持（左右手各拿一個）</button>
       </div>
       <p class="hint">保留次數 (RIR) 現在改成加入動作後、在每一組後面按「+RIR」個別加，不用在這裡先決定。</p>
-      <p class="hint" id="unilateralHint" hidden>單邊動作只需填「單邊」的重量，例如左右手各拿 8kg 就填 8。訓練量會自動算左右各一次。</p>
+      <p class="hint">「單邊」和「雙持」是兩件獨立的事，可任意組合：單邊＝左右邊分開各做一次（次數填單邊，訓練量自動 ×2）；雙持＝左右手各拿一個重量（重量填單顆，例如 8+8kg 就填 8，訓練量自動 ×2）。</p>
     </div>
     <button class="btn btn-primary btn-block" id="confirmAddExercise">加入這次訓練</button>
   </div>
@@ -296,7 +298,8 @@
       </div>
     </div>
     <div class="chip-row">
-      <button class="chip" id="managerUnilateralToggle">單邊動作（左右分開）</button>
+      <button class="chip" id="managerUnilateralToggle">單邊動作（左右各做）</button>
+      <button class="chip" id="managerDualToggle">雙持（各拿一個）</button>
     </div>
     <button class="btn btn-primary btn-block" id="managerAddBtn">＋ 新增到清單</button>
   </div>
@@ -311,6 +314,29 @@
     </div>
     <div id="shareModalBody"></div>
     <button class="btn btn-primary btn-block" id="copyShareTextBtn">複製為文字</button>
+  </div>
+</div>
+
+<!-- Export the training log as text for an AI chat -->
+<div class="modal-backdrop" id="aiExportModal" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h3>🤖 匯出給 AI 分析</h3>
+      <button class="btn-icon" id="closeAiExportModal">✕</button>
+    </div>
+    <p class="hint">選擇範圍後複製（或下載）文字，貼到 Claude 對話裡就能請它幫你分析課表。內容已附上分析問題、你的目標與名詞說明。</p>
+    <div class="chip-row" id="aiRangeChips">
+      <button class="chip" data-weeks="4">近 4 週</button>
+      <button class="chip selected" data-weeks="12">近 12 週</button>
+      <button class="chip" data-weeks="26">近半年</button>
+      <button class="chip" data-weeks="0">全部</button>
+    </div>
+    <div class="track-stat" id="aiExportInfo"></div>
+    <textarea id="aiExportText" class="text-input ai-export-text" readonly></textarea>
+    <div class="chip-row">
+      <button class="btn btn-primary" id="copyAiExportBtn">複製文字</button>
+      <button class="btn" id="downloadAiExportBtn">下載 .txt</button>
+    </div>
   </div>
 </div>
 

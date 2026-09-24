@@ -61,8 +61,8 @@
     assertEqual(Calc.exerciseVolume(ex), 940);
   });
 
-  test('exerciseVolume: unilateral exercises count both sides (weight is per-side)', () => {
-    // 8kg in each hand x 10 reps -> 8+8 per rep -> 160kg total for that set
+  test('exerciseVolume: unilateral exercises count both sides (reps are per-side)', () => {
+    // 8kg x 10 reps on each side -> 160kg total for that set
     const ex = { unilateral: true, sets: [{ weight: 8, reps: 10 }] };
     assertEqual(Calc.exerciseVolume(ex), 160);
   });
@@ -70,6 +70,22 @@
   test('exerciseVolume: non-unilateral exercises are not doubled', () => {
     const ex = { sets: [{ weight: 8, reps: 10 }] };
     assertEqual(Calc.exerciseVolume(ex), 80);
+  });
+
+  test('exerciseVolume: dualWeight (one weight per hand) doubles the load, reps are not doubled', () => {
+    // bilateral movement, 20kg dumbbell in each hand x 10 reps -> 400kg
+    const ex = { dualWeight: true, sets: [{ weight: 20, reps: 10 }] };
+    assertEqual(Calc.exerciseVolume(ex), 400);
+  });
+
+  test('exerciseVolume: unilateral + dualWeight are independent and multiply', () => {
+    const ex = { unilateral: true, dualWeight: true, sets: [{ weight: 8, reps: 10 }] };
+    assertEqual(Calc.exerciseVolume(ex), 320); // 8 * 2 weights * 10 reps * 2 sides
+  });
+
+  test('exerciseVolume: unilateral alone (single weight, both sides) is unchanged', () => {
+    const ex = { unilateral: true, sets: [{ weight: 8, reps: 10 }] };
+    assertEqual(Calc.exerciseVolume(ex), 160);
   });
 
   test('exerciseVolume: warm-up sets do not count toward training volume', () => {
@@ -164,6 +180,51 @@
 
   test('intensityPercent: no history yet (0 denominator) returns 0, not NaN/Infinity', () => {
     assertEqual(Calc.intensityPercent(80, 0), 0);
+  });
+
+  // ---- aiExportText (plain-text training log to paste into an AI chat) ----
+  const aiSessions = [
+    { date: '2026-09-01', notes: '狀態不錯', exercises: [
+      { name: '深蹲', category: '腿', inputType: 'weight_reps', note: '槓高40cm', sets: [
+        { weight: 40, reps: 5, warmup: true },
+        { weight: 100, reps: 5, rir: 2 },
+      ] },
+      { name: '啞鈴臥推', category: '胸', inputType: 'weight_reps', dualWeight: true, sets: [{ weight: 20, reps: 10 }] },
+      { name: '單手划船', category: '背', inputType: 'weight_reps', unilateral: true, sets: [{ weight: 24, reps: 10 }] },
+    ] },
+    { date: '2026-01-01', exercises: [{ name: '深蹲', category: '腿', inputType: 'weight_reps', sets: [{ weight: 60, reps: 5 }] }] },
+  ];
+  const aiOpts = { sessions: aiSessions, weights: [{ date: '2026-09-02', weight: 70.5 }], goals: ['打開手腕活動度', ''], fromDate: '2026-08-01', toDate: '2026-09-25' };
+
+  test('aiExportText: includes the analysis request and the goals', () => {
+    const t = Calc.aiExportText(aiOpts);
+    assertTrue(t.includes('請你幫我'), 'has prompt section');
+    assertTrue(t.includes('打開手腕活動度'), 'has goals');
+  });
+
+  test('aiExportText: only sessions inside the date range are listed', () => {
+    const t = Calc.aiExportText(aiOpts);
+    assertTrue(t.includes('2026-09-01'), 'in-range session');
+    assertTrue(!t.includes('2026-01-01'), 'out-of-range session must be excluded');
+  });
+
+  test('aiExportText: warm-ups are labelled, working sets shown with RIR and notes', () => {
+    const t = Calc.aiExportText(aiOpts);
+    assertTrue(t.includes('熱身1: 40kg×5'), 'warm-up line');
+    assertTrue(t.includes('訓練組1: 100kg×5 (RIR 2)'), 'working set line');
+    assertTrue(t.includes('槓高40cm'), 'exercise note');
+  });
+
+  test('aiExportText: dualWeight shows 20+20 and unilateral is flagged', () => {
+    const t = Calc.aiExportText(aiOpts);
+    assertTrue(t.includes('20+20kg×10'), 'dual weight notation');
+    assertTrue(t.includes('單邊'), 'unilateral flag');
+  });
+
+  test('aiExportText: exercise summary uses all-time best 1RM, bodyweight is listed', () => {
+    const t = Calc.aiExportText(aiOpts);
+    assertTrue(t.includes('116.7'), 'squat best est 1RM 100*(1+5/30)=116.7');
+    assertTrue(t.includes('70.5'), 'body weight entry');
   });
 
   // ---- bodyPartDistribution ----

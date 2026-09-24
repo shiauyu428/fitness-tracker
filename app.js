@@ -199,6 +199,22 @@
   // for exercise types calc.js doesn't handle the totals for (reps-only, duration).
   function workingSets(ex) { return ex.sets.filter(s => !s.warmup); }
 
+  // `unilateral` (each side trained separately) and `dualWeight` (a weight in each
+  // hand, e.g. 8+8kg) are independent — any combination is valid.
+  function weightText(ex, w) { return ex.dualWeight ? `${w}+${w}` : `${w}`; }
+  // Per-exercise toggles in the draft card; dualWeight only makes sense when a weight is logged.
+  function exFlagRowHtml(ex) {
+    const dual = ex.inputType === 'weight_reps'
+      ? `<button class="chip chip-sm${ex.dualWeight ? ' selected' : ''}" data-action="toggle-dual" data-ex-id="${ex.id}" title="左右手各拿一個重量，例如 8+8kg">雙持（各拿一個）</button>`
+      : '';
+    return `<div class="chip-row ex-flag-row">
+      <button class="chip chip-sm${ex.unilateral ? ' selected' : ''}" data-action="toggle-unilateral" data-ex-id="${ex.id}" title="左右邊分開各做一次">單邊（左右各做）</button>${dual}
+    </div>`;
+  }
+  function exBadgesHtml(ex) {
+    return (ex.unilateral ? '<span class="uni-badge">單邊</span>' : '') + (ex.dualWeight ? '<span class="uni-badge">雙持</span>' : '');
+  }
+
   // Per-exercise footer summary, depending on how this exercise is logged.
   function exerciseFooterText(ex) {
     const sideMul = ex.unilateral ? 2 : 1;
@@ -211,7 +227,8 @@
       return ex.unilateral ? `總時間：${total} 秒（左右各算）` : `總時間：${total} 秒`;
     }
     const vol = round1(window.Calc.exerciseVolume(ex));
-    return ex.unilateral ? `這動作總量：${vol} kg（單邊重量，左右各1組）` : `這動作總量：${vol} kg`;
+    const notes = [ex.unilateral ? '左右各做' : '', ex.dualWeight ? '雙持' : ''].filter(Boolean).join('、');
+    return `這動作總量：${vol} kg${notes ? `（${notes}）` : ''}`;
   }
 
   // Generic single-number "how much was done" for an exercise, regardless of
@@ -355,7 +372,7 @@
     return `
       <div class="set-row${doneClass}">
         ${setIdxBtnHtml(ex, s, i)}
-        <input type="number" inputmode="decimal" placeholder="${ex.unilateral ? '單邊重量 kg' : '重量 kg'}" step="0.5" min="0"
+        <input type="number" inputmode="decimal" placeholder="${ex.dualWeight ? '單顆重量 kg' : '重量 kg'}" step="0.5" min="0"
           value="${s.weight === '' ? '' : s.weight}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="weight">
         <input type="number" inputmode="numeric" placeholder="次數" step="1" min="0"
           value="${s.reps === '' ? '' : s.reps}" data-ex-id="${ex.id}" data-set-idx="${i}" data-field="reps">
@@ -381,7 +398,7 @@
     exerciseListEl.innerHTML = draft.exercises.map((ex, idx) => `
       <div class="exercise-card" data-ex-id="${ex.id}">
         <div class="exercise-card-head">
-          <div><span class="name">${esc(ex.name)}</span><span class="cat-badge">${esc(ex.category)}</span>${ex.unilateral ? '<span class="uni-badge">單邊</span>' : ''}</div>
+          <div><span class="name">${esc(ex.name)}</span><span class="cat-badge">${esc(ex.category)}</span></div>
           <div class="ex-head-actions">
             <button class="btn-icon" data-action="move-up" data-ex-id="${ex.id}" title="上移" ${idx === 0 ? 'disabled' : ''}>▲</button>
             <button class="btn-icon" data-action="move-down" data-ex-id="${ex.id}" title="下移" ${idx === draft.exercises.length - 1 ? 'disabled' : ''}>▼</button>
@@ -389,6 +406,7 @@
           </div>
         </div>
         <input type="text" class="ex-note-input" placeholder="動作備註（例如：槓高40cm、握距寬）" value="${esc(ex.note || '')}" data-ex-id="${ex.id}">
+        ${exFlagRowHtml(ex)}
         ${exerciseHistoryBoxHtml(ex)}
         ${ex.sets.map((s, i) => setRowHtml(ex, s, i)).join('')}
         <button class="add-set-btn" data-action="add-set" data-ex-id="${ex.id}">＋ 新增一組</button>
@@ -463,6 +481,10 @@
     } else if (btn.dataset.action === 'add-rir') {
       const set = ex.sets[parseInt(btn.dataset.setIdx)];
       if (set) set.rir = '';
+    } else if (btn.dataset.action === 'toggle-unilateral') {
+      ex.unilateral = !ex.unilateral;
+    } else if (btn.dataset.action === 'toggle-dual') {
+      ex.dualWeight = !ex.dualWeight;
     } else if (btn.dataset.action === 'toggle-warmup') {
       const set = ex.sets[parseInt(btn.dataset.setIdx)];
       if (set) set.warmup = !set.warmup;
@@ -498,7 +520,7 @@
   const variantChipsEl = document.getElementById('variantChips');
   const regressionToggleEl = document.getElementById('regressionToggle');
   const unilateralToggleEl = document.getElementById('unilateralToggle');
-  const unilateralHintEl = document.getElementById('unilateralHint');
+  const dualWeightToggleEl = document.getElementById('dualWeightToggle');
   const addNewNameToPresetsBtn = document.getElementById('addNewNameToPresets');
   const addNewNamePreviewEl = document.getElementById('addNewNamePreview');
 
@@ -508,11 +530,15 @@
   let selectedVariant = null;
   let isRegression = false;
   let isUnilateral = false;
+  let isDualWeight = false;
 
   function setUnilateral(value) {
     isUnilateral = value;
     unilateralToggleEl.classList.toggle('selected', isUnilateral);
-    unilateralHintEl.hidden = !isUnilateral;
+  }
+  function setDualWeight(value) {
+    isDualWeight = value;
+    dualWeightToggleEl.classList.toggle('selected', isDualWeight);
   }
 
   categoryChipsEl.innerHTML = CATEGORIES.map(c => `<button class="chip" data-cat="${c}">${c}</button>`).join('');
@@ -563,6 +589,7 @@
     if (!name) return;
     const preset = { name, inputType: currentInputType };
     if (isUnilateral) preset.unilateral = true;
+    if (isDualWeight) preset.dualWeight = true;
     hiddenPresets.delete(`${selectedCategory}::${name}`);
     customPresets[selectedCategory] = (customPresets[selectedCategory] || []).filter(p => p.name !== name);
     customPresets[selectedCategory].push(preset);
@@ -580,6 +607,7 @@
     setInputType('weight_reps');
     setVariants(null);
     setUnilateral(false);
+    setDualWeight(false);
     refreshModalForCategory();
     updateAddNewNameVisibility();
   });
@@ -591,6 +619,7 @@
     setInputType((preset && preset.inputType) || 'weight_reps');
     setVariants(preset && preset.variants);
     setUnilateral(!!(preset && preset.unilateral));
+    setDualWeight(!!(preset && preset.dualWeight));
     updateAddNewNameVisibility();
   });
   inputTypeChipsEl.addEventListener('click', (e) => {
@@ -609,6 +638,7 @@
     regressionToggleEl.classList.toggle('selected', isRegression);
   });
   unilateralToggleEl.addEventListener('click', () => setUnilateral(!isUnilateral));
+  dualWeightToggleEl.addEventListener('click', () => setDualWeight(!isDualWeight));
 
   function openModal() {
     exerciseNameInput.value = '';
@@ -618,6 +648,7 @@
     setInputType('weight_reps');
     setVariants(null);
     setUnilateral(false);
+    setDualWeight(false);
     refreshModalForCategory();
     addNewNameToPresetsBtn.hidden = true;
     modal.hidden = false;
@@ -634,7 +665,7 @@
     if (isRegression) name += '（退階）';
     const lastInstance = getLatestExerciseInstance(name);
     draft.exercises.push({
-      id: uid(), name, category: selectedCategory, inputType: currentInputType, unilateral: isUnilateral,
+      id: uid(), name, category: selectedCategory, inputType: currentInputType, unilateral: isUnilateral, dualWeight: isDualWeight,
       note: (lastInstance && lastInstance.note) || '',
       restSeconds: (lastInstance && lastInstance.restSeconds) || 90,
       sets: [defaultSetFor({ inputType: currentInputType }, null)],
@@ -651,10 +682,12 @@
   const managerNewNameEl = document.getElementById('managerNewName');
   const managerInputTypeChipsEl = document.getElementById('managerInputTypeChips');
   const managerUnilateralToggleEl = document.getElementById('managerUnilateralToggle');
+  const managerDualToggleEl = document.getElementById('managerDualToggle');
 
   let managerCategory = CATEGORIES[0];
   let managerInputType = 'weight_reps';
   let managerUnilateral = false;
+  let managerDual = false;
 
   managerCategoryChipsEl.innerHTML = CATEGORIES.map(c => `<button class="chip" data-cat="${c}">${c}</button>`).join('');
 
@@ -676,7 +709,7 @@
         <div class="manager-preset-row">
           <div>
             <span class="manager-preset-name">${esc(p.name)}</span>
-            <span class="manager-preset-meta">${typeLabel(p.inputType)}${p.unilateral ? '・單邊' : ''}${isCustom ? '・自訂' : ''}</span>
+            <span class="manager-preset-meta">${typeLabel(p.inputType)}${p.unilateral ? '・單邊' : ''}${p.dualWeight ? '・雙持' : ''}${isCustom ? '・自訂' : ''}</span>
           </div>
           <button class="btn btn-sm btn-danger" data-action="${isCustom ? 'delete-custom' : 'hide-preset'}" data-name="${esc(p.name)}">
             ${isCustom ? '刪除' : '隱藏'}
@@ -715,11 +748,16 @@
     managerUnilateral = !managerUnilateral;
     managerUnilateralToggleEl.classList.toggle('selected', managerUnilateral);
   });
+  managerDualToggleEl.addEventListener('click', () => {
+    managerDual = !managerDual;
+    managerDualToggleEl.classList.toggle('selected', managerDual);
+  });
   document.getElementById('managerAddBtn').addEventListener('click', () => {
     const name = managerNewNameEl.value.trim();
     if (!name) { toast('請輸入動作名稱'); return; }
     const preset = { name, inputType: managerInputType };
     if (managerUnilateral) preset.unilateral = true;
+    if (managerDual) preset.dualWeight = true;
     hiddenPresets.delete(`${managerCategory}::${name}`); // un-hide in case this re-adds a built-in name
     customPresets[managerCategory] = (customPresets[managerCategory] || []).filter(p => p.name !== name);
     customPresets[managerCategory].push(preset);
@@ -730,6 +768,8 @@
     managerInputTypeChipsEl.querySelectorAll('.chip').forEach(c => c.classList.toggle('selected', c.dataset.type === 'weight_reps'));
     managerUnilateral = false;
     managerUnilateralToggleEl.classList.remove('selected');
+    managerDual = false;
+    managerDualToggleEl.classList.remove('selected');
     renderManagerPresetList();
     toast(`已新增「${name}」`);
   });
@@ -848,6 +888,7 @@
         category: item.category,
         inputType: item.inputType || 'weight_reps',
         unilateral: item.unilateral,
+        dualWeight: item.dualWeight,
         note: (lastEx && lastEx.note) || '',
         restSeconds: (lastEx && lastEx.restSeconds) || 90,
         sets,
@@ -903,6 +944,7 @@
         category: ex.category,
         inputType: ex.inputType || 'weight_reps',
         unilateral: ex.unilateral,
+        dualWeight: ex.dualWeight,
         soreness: ex.soreness,
         note: ex.note,
         restSeconds: ex.restSeconds || 90,
@@ -923,7 +965,7 @@
     const date = sessionDateInput.value || todayStr();
     const cleanExercises = draft.exercises
       .map(ex => ({
-        id: ex.id, name: ex.name, category: ex.category, inputType: ex.inputType, unilateral: ex.unilateral,
+        id: ex.id, name: ex.name, category: ex.category, inputType: ex.inputType, unilateral: ex.unilateral, dualWeight: ex.dualWeight,
         soreness: ex.soreness, note: (ex.note || '').trim(), restSeconds: ex.restSeconds || 90,
         sets: cleanSetsFor(ex),
       }))
@@ -977,7 +1019,7 @@
     const warmupPrefix = s.warmup ? '🔥' : '';
     if (ex.inputType === 'reps_only') return `${warmupPrefix}${s.reps}下${rirSuffix}`;
     if (ex.inputType === 'duration') return `${warmupPrefix}${s.seconds}秒`;
-    return warmupPrefix + (ex.unilateral ? `${s.weight}+${s.weight}kg×${s.reps}` : `${s.weight}kg×${s.reps}`) + rirSuffix;
+    return warmupPrefix + `${weightText(ex, s.weight)}kg×${s.reps}` + rirSuffix;
   }
   function exerciseSubtotalLabel(ex) {
     const sideMul = ex.unilateral ? 2 : 1;
@@ -1017,7 +1059,7 @@
     return `
       <div class="ex-table-row">
         <div class="ex-table-left">
-          <div class="ex-table-name">${esc(ex.name)}<span class="cat-badge">${esc(ex.category)}</span>${ex.unilateral ? '<span class="uni-badge">單邊</span>' : ''}</div>
+          <div class="ex-table-name">${esc(ex.name)}<span class="cat-badge">${esc(ex.category)}</span>${exBadgesHtml(ex)}</div>
           <div class="ex-table-sets">${ex.sets.length} 組・${ex.sets.map(st => formatSetLabel(ex, st)).join('、')}</div>
           ${ex.note ? `<div class="ex-note-display">📌 ${esc(ex.note)}</div>` : ''}
           ${sessionId ? sorenessBtnHtml(ex, sessionId) : ''}
@@ -1088,7 +1130,7 @@
       templates.push({
         id: uid(),
         name: name.trim(),
-        exercises: s.exercises.map(ex => ({ name: ex.name, category: ex.category, inputType: ex.inputType, unilateral: ex.unilateral })),
+        exercises: s.exercises.map(ex => ({ name: ex.name, category: ex.category, inputType: ex.inputType, unilateral: ex.unilateral, dualWeight: ex.dualWeight })),
       });
       saveTemplatesToStorage();
       toast(`已存成範本「${name.trim()}」`);
@@ -1156,8 +1198,7 @@
     const rirSuffix = (s.rir !== undefined && s.rir !== null && s.rir !== '') ? ` (RIR ${s.rir})` : '';
     if (ex.inputType === 'reps_only') return `${label}: ${s.reps} 次${rirSuffix}`;
     if (ex.inputType === 'duration') return `${label}: ${fmtMMSS(s.seconds)}`;
-    const weightStr = ex.unilateral ? `${s.weight}+${s.weight}` : `${s.weight}`;
-    return `${label}: ${weightStr} kg × ${s.reps}${rirSuffix}`;
+    return `${label}: ${weightText(ex, s.weight)} kg × ${s.reps}${rirSuffix}`;
   }
 
   // Working sets numbered "訓練組 1, 2, 3…" and warm-ups separately "熱身 1, 2…",
@@ -1181,7 +1222,7 @@
     const lines = [`🏋️ ${s.date}（${fmtWeekday(s.date)}）訓練紀錄`, ''];
     s.exercises.forEach((ex, i) => {
       if (i > 0) lines.push('');
-      lines.push(ex.name + (ex.unilateral ? '（單邊）' : ''));
+      lines.push(ex.name + (ex.unilateral ? '（單邊）' : '') + (ex.dualWeight ? '（雙持）' : ''));
       lines.push(...exerciseShareLines(ex));
       if (ex.note) lines.push(`備註: ${ex.note}`);
     });
@@ -1192,7 +1233,7 @@
   function exerciseShareBlockHtml(ex) {
     return `
       <div class="share-exercise-block">
-        <div class="share-exercise-name">${esc(ex.name)}${ex.unilateral ? '<span class="uni-badge">單邊</span>' : ''}</div>
+        <div class="share-exercise-name">${esc(ex.name)}${exBadgesHtml(ex)}</div>
         ${exerciseShareLines(ex).map(l => `<div class="share-set-line">${esc(l)}</div>`).join('')}
         ${ex.note ? `<div class="share-note-line">備註: ${esc(ex.note)}</div>` : ''}
       </div>`;
@@ -1221,6 +1262,65 @@
     } catch (e) {
       toast('複製失敗，請手動選取文字複製');
     }
+  });
+
+  // ---------------------------------------------------------------------
+  // Export for AI analysis: plain text (question + goals + full log) the user
+  // pastes into an AI chat. The sync file lives in Drive's hidden appDataFolder,
+  // which an AI can't read, so the data has to leave the app this way.
+  // ---------------------------------------------------------------------
+  const aiExportModal = document.getElementById('aiExportModal');
+  const aiExportTextEl = document.getElementById('aiExportText');
+  const aiExportInfoEl = document.getElementById('aiExportInfo');
+  const aiRangeChipsEl = document.getElementById('aiRangeChips');
+  let aiRangeWeeks = 12;
+
+  function refreshAiExport() {
+    const to = todayStr();
+    let from = null;
+    if (aiRangeWeeks > 0) {
+      const d = new Date(to + 'T00:00:00');
+      d.setDate(d.getDate() - aiRangeWeeks * 7 + 1);
+      from = window.Calc.toDateStr(d);
+    }
+    const text = window.Calc.aiExportText({ sessions, weights, goals, fromDate: from, toDate: to });
+    aiExportTextEl.value = text;
+    const count = sessions.filter(s => (!from || s.date >= from) && s.date <= to).length;
+    aiExportInfoEl.textContent = `${count} 次訓練・約 ${text.length.toLocaleString()} 字`;
+  }
+
+  document.getElementById('openAiExport').addEventListener('click', () => {
+    refreshAiExport();
+    aiExportModal.hidden = false;
+  });
+  function closeAiExport() { aiExportModal.hidden = true; }
+  document.getElementById('closeAiExportModal').addEventListener('click', closeAiExport);
+  aiExportModal.addEventListener('click', (e) => { if (e.target === aiExportModal) closeAiExport(); });
+  aiRangeChipsEl.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    aiRangeWeeks = parseInt(chip.dataset.weeks, 10);
+    aiRangeChipsEl.querySelectorAll('.chip').forEach(c => c.classList.toggle('selected', c === chip));
+    refreshAiExport();
+  });
+  document.getElementById('copyAiExportBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(aiExportTextEl.value);
+      toast('已複製，貼到 Claude 對話就能分析了');
+    } catch (e) {
+      aiExportTextEl.select();
+      toast('自動複製失敗，已選取文字，請手動複製');
+    }
+  });
+  document.getElementById('downloadAiExportBtn').addEventListener('click', () => {
+    const blob = new Blob([aiExportTextEl.value], { type: 'text/plain;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `健身紀錄_${todayStr()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
   // ---------------------------------------------------------------------
@@ -1595,9 +1695,22 @@
   const timerCustomInput = document.getElementById('timerCustomInput');
   const timerPauseBtn = document.getElementById('timerPauseBtn');
 
+  // Countdown is anchored to an absolute end timestamp, not a per-second tick
+  // counter: browsers throttle/suspend timers while the app is in the background,
+  // so counting ticks would stall. The remaining time is always recomputed from
+  // the wall clock, and re-checked when the page becomes visible again.
+  const KEY_TIMER_END = 'fitness_timer_end';
   let timerRemaining = 0;
+  let timerEndAt = 0;
   let timerInterval = null;
   let timerRunning = false;
+
+  function persistTimerEnd() {
+    try {
+      if (timerRunning) localStorage.setItem(KEY_TIMER_END, String(timerEndAt));
+      else localStorage.removeItem(KEY_TIMER_END);
+    } catch (e) { /* storage unavailable — timer still works in memory */ }
+  }
 
   function fmtMMSS(totalSeconds) {
     const m = Math.floor(totalSeconds / 60);
@@ -1613,16 +1726,27 @@
   }
 
   function timerTick() {
-    timerRemaining--;
+    if (!timerRunning) return;
+    timerRemaining = Math.max(0, Math.ceil((timerEndAt - Date.now()) / 1000));
     if (timerRemaining <= 0) {
-      timerRemaining = 0;
       clearInterval(timerInterval);
       timerRunning = false;
+      persistTimerEnd();
       updateTimerUI();
       onTimerDone();
       return;
     }
     updateTimerUI();
+  }
+
+  function runTimerFor(seconds) {
+    clearInterval(timerInterval);
+    timerRemaining = seconds;
+    timerEndAt = Date.now() + seconds * 1000;
+    timerRunning = true;
+    persistTimerEnd();
+    updateTimerUI();
+    timerInterval = setInterval(timerTick, 250);
   }
 
   // Created lazily on a real click (startTimer is only ever called from a
@@ -1641,30 +1765,29 @@
 
   function startTimer(seconds) {
     unlockAudio();
-    clearInterval(timerInterval);
-    timerRemaining = seconds;
-    timerRunning = true;
-    updateTimerUI();
-    timerInterval = setInterval(timerTick, 1000);
+    runTimerFor(seconds);
   }
 
   function pauseResumeTimer() {
     if (timerRemaining <= 0) return;
     if (timerRunning) {
+      timerTick();
+      if (!timerRunning) return;
       clearInterval(timerInterval);
       timerRunning = false;
+      persistTimerEnd();
+      updateTimerUI();
     } else {
       unlockAudio();
-      timerRunning = true;
-      timerInterval = setInterval(timerTick, 1000);
+      runTimerFor(timerRemaining);
     }
-    updateTimerUI();
   }
 
   function resetTimer() {
     clearInterval(timerInterval);
     timerRunning = false;
     timerRemaining = 0;
+    persistTimerEnd();
     updateTimerUI();
   }
 
@@ -1704,6 +1827,27 @@
   });
   timerPauseBtn.addEventListener('click', pauseResumeTimer);
   document.getElementById('timerResetBtn').addEventListener('click', resetTimer);
+
+  // Coming back from another app/tab: recompute from the clock right away (and
+  // fire the "done" alert if the rest ended while we were away).
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) timerTick(); });
+  window.addEventListener('pageshow', timerTick);
+  window.addEventListener('focus', timerTick);
+
+  // Survive the OS discarding the page while backgrounded: resume a rest that is still running.
+  (function restoreTimer() {
+    let end = 0;
+    try { end = parseInt(localStorage.getItem(KEY_TIMER_END), 10) || 0; } catch (e) { return; }
+    if (end > Date.now()) {
+      timerEndAt = end;
+      timerRemaining = Math.ceil((end - Date.now()) / 1000);
+      timerRunning = true;
+      updateTimerUI();
+      timerInterval = setInterval(timerTick, 250);
+    } else if (end) {
+      persistTimerEnd();
+    }
+  })();
 
   // ---------------------------------------------------------------------
   // Google Drive sync (optional) — stores one JSON file in the app's hidden

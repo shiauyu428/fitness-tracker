@@ -492,3 +492,9 @@ input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); ou
 .timer-custom-row input { min-width: 0; }
 .timer-controls { display: flex; gap: 8px; }
 .timer-controls .btn { flex: 1; }
+
+.ex-flag-row { margin: 6px 0 8px; }
+.chip.chip-sm { padding: 4px 10px; font-size: 12px; }
+
+.ai-export-text { width: 100%; height: 240px; margin: 8px 0; font-size: 12px; line-height: 1.5; resize: vertical; font-family: ui-monospace, Menlo, monospace; }
+#aiExportModal[hidden] { display: none; }
