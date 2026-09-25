@@ -343,7 +343,9 @@
   // tight row. Warm-up sets are excluded from volume/PR everywhere else.
   function setIdxBtnHtml(ex, s, i) {
     const isWarmup = !!s.warmup;
-    return `<button class="set-idx-btn${isWarmup ? ' warmup' : ''}" data-action="toggle-warmup" data-ex-id="${ex.id}" data-set-idx="${i}" title="點一下標記/取消為熱身組">${isWarmup ? '🔥' : i + 1}</button>`;
+    // Working sets are numbered on their own — warm-ups don't take up a number.
+    const workingNo = ex.sets.slice(0, i + 1).filter(x => !x.warmup).length;
+    return `<button class="set-idx-btn${isWarmup ? ' warmup' : ''}" data-action="toggle-warmup" data-ex-id="${ex.id}" data-set-idx="${i}" title="點一下標記/取消為熱身組">${isWarmup ? '🔥' : workingNo}</button>`;
   }
 
   function setRowHtml(ex, s, i) {
